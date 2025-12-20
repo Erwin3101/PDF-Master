@@ -209,7 +209,7 @@
 </head>
 
 <body
-    class="bg-slate-100 dark:bg-slate-950 min-h-screen font-sans text-slate-800 dark:text-slate-200 pb-12 transition-colors duration-300 flex flex-col">
+    class="bg-slate-100 dark:bg-slate-950 min-h-screen font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 flex flex-col">
 
     <!-- NAV PRINCIPAL -->
     <nav
@@ -234,38 +234,53 @@
                         <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
                         <i data-lucide="sun" class="w-5 h-5 block dark:hidden"></i>
                     </button>
+
+                    <!-- Botón Idioma -->
+                    <button onclick="toggleLanguage()"
+                        class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-bold text-sm w-10 h-10 flex items-center justify-center"
+                        title="Cambiar Idioma">
+                        <span id="lang-btn-text">ES</span>
+                    </button>
                 </div>
 
                 <div class="flex items-center gap-2 animate-fade-in">
                     <div
                         class="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl gap-1 overflow-x-auto max-w-full w-full md:w-auto scrollbar-hide border dark:border-slate-800">
                         <button onclick="switchTool('home')" id="nav-home"
-                            class="tool-btn active px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
-                            <i data-lucide="home" class="w-4 h-4"></i>
+                            class="tool-btn active px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_home">
+                            <i data-lucide="home" class="w-4 h-4"></i> Inicio
+                        </button>
                         </button>
 
                         <button onclick="switchTool('compress')" id="nav-compress"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_compress">
                             <i data-lucide="minimize-2" class="w-4 h-4"></i> Comprimir
                         </button>
                         <button onclick="switchTool('img2pdf')" id="nav-img2pdf"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_img2pdf">
                             <i data-lucide="image" class="w-4 h-4"></i> Img a PDF
                         </button>
                         <button onclick="switchTool('nup')" id="nav-nup"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_nup">
                             <i data-lucide="layout-grid" class="w-4 h-4"></i> Resumir
                         </button>
                         <button onclick="switchTool('split')" id="nav-split"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_split">
                             <i data-lucide="scissors" class="w-4 h-4"></i> Dividir
                         </button>
                         <button onclick="switchTool('merge')" id="nav-merge"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_merge">
                             <i data-lucide="combine" class="w-4 h-4"></i> Unir
                         </button>
                         <button onclick="switchTool('pdf2img')" id="nav-pdf2img"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap">
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_pdf2img">
                             <i data-lucide="images" class="w-4 h-4"></i> PDF a Img
                         </button>
                     </div>
@@ -274,92 +289,108 @@
                         <button id="nav-dropdown-btn"
                             class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-slate-700 dark:text-slate-200 transition-colors border dark:border-slate-700 h-[40px]">
                             <i data-lucide="grid" class="w-4 h-4"></i>
-                            <span class="hidden lg:inline">Todas</span>
+                            <span class="hidden lg:inline" data-i18n="nav_all">Todas</span>
                             <i data-lucide="chevron-down"
                                 class="w-4 h-4 transition-transform group-hover:rotate-180"></i>
                         </button>
                         <div
                             class="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 hidden group-hover:block p-2 z-50 animate-fade-in max-h-[80vh] overflow-y-auto">
 
-                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Organizar
+                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider"
+                                data-i18n="drop_organize">Organizar
                             </div>
                             <button onclick="switchTool('merge')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-md"><i
-                                        data-lucide="combine" class="w-4 h-4"></i></div> Unir PDF
+                                        data-lucide="combine" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_merge">Unir PDF</span>
                             </button>
                             <button onclick="switchTool('compress')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-md"><i
-                                        data-lucide="minimize-2" class="w-4 h-4"></i></div> Comprimir
+                                        data-lucide="minimize-2" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_compress">Comprimir</span>
                             </button>
                             <button onclick="switchTool('split')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-md"><i
-                                        data-lucide="scissors" class="w-4 h-4"></i></div> Dividir PDF
+                                        data-lucide="scissors" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_split">Dividir PDF</span>
                             </button>
                             <button onclick="switchTool('nup')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-md"><i
-                                        data-lucide="layout-grid" class="w-4 h-4"></i></div> Resumir PDF
+                                        data-lucide="layout-grid" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_nup">Resumir PDF</span>
                             </button>
 
-                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2">
+                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2"
+                                data-i18n="drop_convert">
                                 Convertir
                             </div>
                             <button onclick="switchTool('img2pdf')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-md"><i
-                                        data-lucide="image" class="w-4 h-4"></i></div> Img a PDF
+                                        data-lucide="image" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_img2pdf">Img a PDF</span>
                             </button>
                             <button onclick="switchTool('pdf2img')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-md"><i
-                                        data-lucide="image-minus" class="w-4 h-4"></i></div> PDF a Img
+                                        data-lucide="image-minus" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_pdf2img">PDF a Img</span>
                             </button>
                             <button onclick="switchTool('ocr')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 rounded-md"><i
-                                        data-lucide="text-select" class="w-4 h-4"></i></div> OCR / Texto
+                                        data-lucide="text-select" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_ocr">OCR / Texto</span>
                             </button>
                             <button onclick="switchTool('scan-enhancer')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 rounded-md"><i
-                                        data-lucide="wand-2" class="w-4 h-4"></i></div> Mejorar Escaneo
+                                        data-lucide="wand-2" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_scan">Mejorar Escaneo</span>
                             </button>
 
-                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2">Editar
+                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2"
+                                data-i18n="drop_edit">Editar
                             </div>
 
                             <button onclick="switchTool('watermark')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-md"><i
-                                        data-lucide="stamp" class="w-4 h-4"></i></div> Marca Agua
+                                        data-lucide="stamp" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_watermark">Marca Agua</span>
                             </button>
                             <button onclick="switchTool('pagenumbers')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 rounded-md"><i
-                                        data-lucide="hash" class="w-4 h-4"></i></div> Números Pág
+                                        data-lucide="hash" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_pagenum">Números Pág</span>
                             </button>
                             <button onclick="switchTool('sign')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div
                                     class="p-1.5 bg-blue-800/10 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-md">
                                     <i data-lucide="pen-tool" class="w-4 h-4"></i>
-                                </div> Firmar PDF
+                                </div> <span data-i18n="drop_sign">Firmar PDF</span>
                             </button>
 
-                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2">Otros
+                            <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2"
+                                data-i18n="drop_others">Otros
                             </div>
                             <button onclick="switchTool('poster')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-600 rounded-md"><i
-                                        data-lucide="grid-3x3" class="w-4 h-4"></i></div> Póster
+                                        data-lucide="grid-3x3" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_poster">Póster</span>
                             </button>
                             <button onclick="switchTool('collage')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-md"><i
-                                        data-lucide="layout-dashboard" class="w-4 h-4"></i></div> Collage
+                                        data-lucide="layout-dashboard" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_collage">Collage</span>
                             </button>
                         </div>
                     </div>
@@ -372,10 +403,12 @@
         <!-- SECCIÓN DE INICIO -->
         <section id="section-home" class="block animate-fade-in">
             <div class="text-center py-12">
-                <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 transition-colors">
+                <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 transition-colors"
+                    data-i18n="hero_title">
                     Suite de Herramientas <span class="text-blue-600 dark:text-blue-400">PDF</span>
                 </h1>
-                <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-12 transition-colors">
+                <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-12 transition-colors"
+                    data-i18n="hero_desc">
                     Todas las herramientas que necesitas en un solo lugar. 100% Privado y seguro en tu navegador.
                 </p>
 
@@ -392,10 +425,11 @@
                             class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="image" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+                            data-i18n="card_img2pdf_title">
                             Img a PDF</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Convierte fotos a PDF.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_img2pdf_desc">
+                            Convierte fotos a PDF.</p>
                     </button>
 
                     <!-- Comprimir PDF (NUEVO) -->
@@ -405,10 +439,11 @@
                             class="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="minimize-2" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors"
+                            data-i18n="card_compress_title">
                             Comprimir PDF</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Reduce el tamaño del archivo.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_compress_desc">Reduce
+                            el tamaño del archivo.</p>
                     </button>
 
                     <!-- 2. Resumir (N-UP) -->
@@ -418,10 +453,11 @@
                             class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="layout-grid" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
+                            data-i18n="card_nup_title">
                             Resumir PDF</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Varias páginas en una.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_nup_desc">Varias
+                            páginas en una.</p>
                     </button>
 
                     <!-- 3. Dividir -->
@@ -431,10 +467,11 @@
                             class="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="scissors" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors"
+                            data-i18n="card_split_title">
                             Dividir / Rotar</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Elimina o rota páginas.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_split_desc">Elimina o
+                            rota páginas.</p>
                     </button>
 
                     <!-- 4. Unir -->
@@ -444,10 +481,11 @@
                             class="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="combine" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors"
+                            data-i18n="card_merge_title">
                             Unir PDFs</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Combina múltiples archivos.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_merge_desc">Combina
+                            múltiples archivos.</p>
                     </button>
 
                     <!-- 5. PDF a Img -->
@@ -457,10 +495,11 @@
                             class="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="image-minus" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors"
+                            data-i18n="card_pdf2img_title">
                             PDF a Imágenes</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Extrae páginas como JPG.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_pdf2img_desc">Extrae
+                            páginas como JPG.</p>
                     </button>
 
                     <!-- OCR (NUEVO) -->
@@ -470,10 +509,11 @@
                             class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="text-select" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors"
+                            data-i18n="card_ocr_title">
                             OCR / Texto</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Extrae texto editable de imágenes.
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_ocr_desc">Extrae
+                            texto editable de imágenes.
                         </p>
                     </button>
 
@@ -484,10 +524,11 @@
                             class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="wand-2" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors"
+                            data-i18n="card_scan_title">
                             Mejorar Escaneo</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Limpia y binariza fotos de
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_scan_desc">Limpia y
+                            binariza fotos de
                             documentos.</p>
                     </button>
 
@@ -498,10 +539,11 @@
                             class="bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="grid-3x3" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors"
+                            data-i18n="card_poster_title">
                             Póster Gigante</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Imprime en múltiples A4.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_poster_desc">Imprime
+                            en múltiples A4.</p>
                     </button>
 
                     <!-- 7. Collage -->
@@ -511,10 +553,11 @@
                             class="bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors"
+                            data-i18n="card_collage_title">
                             Estudio Collage</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Crea composiciones.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_collage_desc">Crea
+                            composiciones.</p>
                     </button>
 
                     <!-- 8. Watermark -->
@@ -524,10 +567,11 @@
                             class="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="stamp" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors"
+                            data-i18n="card_watermark_title">
                             Marca de Agua</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Pon tu sello en todas las páginas.
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_watermark_desc">Pon
+                            tu sello en todas las páginas.
                         </p>
                     </button>
 
@@ -538,10 +582,11 @@
                             class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="hash" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors"
+                            data-i18n="card_pagenum_title">
                             Números de Pág</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Añade numeración auto.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_pagenum_desc">Añade
+                            numeración auto.</p>
                     </button>
 
                     <!-- 10. Sign -->
@@ -551,10 +596,11 @@
                             class="bg-blue-800/10 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="pen-tool" class="w-6 h-6"></i>
                         </div>
-                        <h3
-                            class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors">
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors"
+                            data-i18n="card_sign_title">
                             Firmar PDF</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Dibuja y coloca tu firma.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_sign_desc">Dibuja y
+                            coloca tu firma.</p>
                     </button>
                 </div>
 
@@ -567,9 +613,11 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-teal-50/50 dark:bg-teal-900/20 p-6 border-b border-teal-100 dark:border-teal-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="minimize-2" class="text-teal-600 dark:text-teal-400"></i> Comprimir PDF</h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Reduce el tamaño de tu archivo PDF.</p>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_compress_title"><i data-lucide="minimize-2"
+                            class="text-teal-600 dark:text-teal-400"></i> Comprimir PDF</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_compress_desc">Reduce el
+                        tamaño de tu archivo PDF.</p>
                 </div>
                 <div class="p-6">
                     <div id="compress-upload-area">
@@ -633,9 +681,11 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-blue-50/50 dark:bg-blue-900/20 p-6 border-b border-blue-100 dark:border-blue-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="image" class="text-blue-600 dark:text-blue-400"></i> Imagen a PDF</h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Convierte tus imágenes con opciones de
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_img2pdf_title"><i data-lucide="image"
+                            class="text-blue-600 dark:text-blue-400"></i> Imagen a PDF</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_img2pdf_desc">Convierte tus
+                        imágenes con opciones de
                         personalización profesionales.</p>
                 </div>
                 <div class="flex border-b border-slate-200 dark:border-slate-800">
@@ -751,9 +801,11 @@
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div
                     class="bg-indigo-50/50 dark:bg-indigo-900/20 p-6 border-b border-indigo-100 dark:border-indigo-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="layout-grid" class="text-indigo-600 dark:text-indigo-400"></i> Resumir PDF</h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Junta varias páginas en una sola para ahorrar
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_nup_title"><i data-lucide="layout-grid"
+                            class="text-indigo-600 dark:text-indigo-400"></i> Resumir PDF</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_nup_desc">Junta varias páginas
+                        en una sola para ahorrar
                         impresión.</p>
                 </div>
                 <div class="p-6">
@@ -802,10 +854,12 @@
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div
                     class="bg-orange-50/50 dark:bg-orange-900/20 p-6 border-b border-orange-100 dark:border-orange-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_split_title">
                         <i data-lucide="scissors" class="text-orange-600 dark:text-orange-400"></i> Editor de Páginas
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Arrastra para reordenar, elimina páginas o
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_split_desc">Arrastra para
+                        reordenar, elimina páginas o
                         gíralas.</p>
                 </div>
 
@@ -846,10 +900,12 @@
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div
                     class="bg-purple-50/50 dark:bg-purple-900/20 p-6 border-b border-purple-100 dark:border-purple-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="combine" class="text-purple-600 dark:text-purple-400"></i> Unir y Organizar
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_merge_title"><i data-lucide="combine"
+                            class="text-purple-600 dark:text-purple-400"></i> Unir y Organizar
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Arrastra para cambiar el orden de las páginas.
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_merge_desc">Arrastra para
+                        cambiar el orden de las páginas.
                     </p>
                 </div>
                 <div class="p-6">
@@ -888,10 +944,12 @@
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div
                     class="bg-emerald-50/50 dark:bg-emerald-900/20 p-6 border-b border-emerald-100 dark:border-emerald-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_pdf2img_title">
                         <i data-lucide="images" class="text-emerald-600 dark:text-emerald-400"></i> PDF a Imágenes (JPG)
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Arrastra para reordenar, rota o selecciona
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_pdf2img_desc">Arrastra para
+                        reordenar, rota o selecciona
                         antes de descargar.</p>
                 </div>
                 <div class="p-6">
@@ -930,10 +988,12 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-teal-50/50 dark:bg-teal-900/20 p-6 border-b border-teal-100 dark:border-teal-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="grid-3x3" class="text-teal-600 dark:text-teal-400"></i> Creador de Póster HD
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_poster_title"><i data-lucide="grid-3x3"
+                            class="text-teal-600 dark:text-teal-400"></i> Creador de Póster HD
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Alta calidad de impresión. Soporta múltiples
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_poster_desc">Alta calidad de
+                        impresión. Soporta múltiples
                         archivos.</p>
                 </div>
                 <div class="p-6">
@@ -1018,8 +1078,9 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-pink-50/50 dark:bg-pink-900/20 p-6 border-b border-pink-100 dark:border-pink-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="layout-dashboard" class="text-pink-600 dark:text-pink-400"></i> Collage</h2>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_collage_title"><i data-lucide="layout-dashboard"
+                            class="text-pink-600 dark:text-pink-400"></i> Collage</h2>
                 </div>
                 <div class="p-6">
                     <div id="collage-upload-area">
@@ -1236,9 +1297,11 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-red-50/50 dark:bg-red-900/20 p-6 border-b border-red-100 dark:border-red-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="stamp" class="text-red-600 dark:text-red-400"></i> Marca de Agua</h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Estampa texto o confidencialidad en tus
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_watermark_title"><i data-lucide="stamp"
+                            class="text-red-600 dark:text-red-400"></i> Marca de Agua</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_watermark_desc">Estampa texto
+                        o confidencialidad en tus
                         documentos.</p>
                 </div>
                 <div class="p-6">
@@ -1307,9 +1370,11 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-cyan-50/50 dark:bg-cyan-900/20 p-6 border-b border-cyan-100 dark:border-cyan-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="hash" class="text-cyan-600 dark:text-cyan-400"></i> Números de Página</h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Indica el orden de tus páginas fácilmente.</p>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_pagenum_title"><i data-lucide="hash"
+                            class="text-cyan-600 dark:text-cyan-400"></i> Números de Página</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_pagenum_desc">Indica el orden
+                        de tus páginas fácilmente.</p>
                 </div>
                 <div class="p-6">
                     <div id="pagenum-upload-area">
@@ -1366,9 +1431,11 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-blue-50/50 dark:bg-blue-900/20 p-6 border-b border-blue-100 dark:border-blue-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="pen-tool" class="text-blue-600 dark:text-blue-400"></i> Firmar PDF</h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Crea tu firma y arrástrala al documento.</p>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_sign_title"><i data-lucide="pen-tool"
+                            class="text-blue-600 dark:text-blue-400"></i> Firmar PDF</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_sign_desc">Crea tu firma y
+                        arrástrala al documento.</p>
                 </div>
                 <div class="p-6">
                     <div id="sign-upload-area">
@@ -1512,10 +1579,12 @@
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div
                     class="bg-yellow-50/50 dark:bg-yellow-900/20 p-6 border-b border-yellow-100 dark:border-yellow-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="text-select" class="text-yellow-600 dark:text-yellow-400"></i> OCR / Texto
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_ocr_title"><i data-lucide="text-select"
+                            class="text-yellow-600 dark:text-yellow-400"></i> OCR / Texto
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Extrae texto editable de imágenes o PDFs
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_ocr_desc">Extrae texto
+                        editable de imágenes o PDFs
                         escaneados.</p>
                 </div>
                 <div class="p-6">
@@ -1596,10 +1665,12 @@
             <div
                 class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div class="bg-gray-50/50 dark:bg-gray-900/20 p-6 border-b border-gray-100 dark:border-gray-900/50">
-                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i
-                            data-lucide="wand-2" class="text-gray-600 dark:text-gray-400"></i> Mejorar Escaneo
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                        data-i18n="sect_scan_title"><i data-lucide="wand-2"
+                            class="text-gray-600 dark:text-gray-400"></i> Mejorar Escaneo
                     </h2>
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">Limpia y binariza imágenes de documentos para
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_scan_desc">Limpia y binariza
+                        imágenes de documentos para
                         mejorar la legibilidad.</p>
                 </div>
                 <div class="p-6">
@@ -1657,10 +1728,12 @@
         class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-8 mt-auto transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-slate-600 dark:text-slate-400 font-medium">
-                &copy; <span id="current-year"></span> Todos los derechos reservados.
+                &copy; <span id="current-year"></span> <span data-i18n="footer_rights">Todos los derechos
+                    reservados.</span>
             </p>
             <p class="text-slate-500 dark:text-slate-500 text-sm mt-2">
-                Autor: <span class="font-bold text-blue-600 dark:text-blue-400">Erwin Marte</span>
+                <span data-i18n="footer_author">Autor:</span> <span
+                    class="font-bold text-blue-600 dark:text-blue-400">Erwin Marte</span>
             </p>
         </div>
     </footer>
@@ -1682,9 +1755,288 @@
         lucide.createIcons();
 
         // ==========================================
-        // MODO OSCURO & FOOTER
+        // MODO OSCURO & IDIOMA & FOOTER
         // ==========================================
         document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // Dark Mode Logic
+        function toggleDarkMode() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+        }
+
+        // Language Logic
+        let currentLang = localStorage.getItem('lang') || 'es';
+
+        const translations = {
+            es: {
+                nav_home: "Inicio",
+                nav_compress: "Comprimir",
+                nav_img2pdf: "Img a PDF",
+                nav_nup: "Resumir",
+                nav_split: "Dividir",
+                nav_merge: "Unir",
+                nav_pdf2img: "PDF a Img",
+                nav_all: "Todas",
+
+                hero_title: "Suite de Herramientas <span class='text-blue-600 dark:text-blue-400'>PDF</span>",
+                hero_desc: "Todas las herramientas que necesitas en un solo lugar. 100% Privado y seguro en tu navegador.",
+
+                // Cards
+                card_img2pdf_title: "Img a PDF",
+                card_img2pdf_desc: "Convierte fotos a PDF.",
+                card_compress_title: "Comprimir PDF",
+                card_compress_desc: "Reduce el tamaño del archivo.",
+                card_nup_title: "Resumir PDF",
+                card_nup_desc: "Varias páginas en una.",
+                card_split_title: "Dividir / Rotar",
+                card_split_desc: "Elimina o rota páginas.",
+                card_merge_title: "Unir PDFs",
+                card_merge_desc: "Combina múltiples archivos.",
+                card_pdf2img_title: "PDF a Imágenes",
+                card_pdf2img_desc: "Extrae páginas como JPG.",
+                card_ocr_title: "OCR / Texto",
+                card_ocr_desc: "Extrae texto editable de imágenes.",
+                card_scan_title: "Mejorar Escaneo",
+                card_scan_desc: "Limpia y binariza fotos de documentos.",
+                card_poster_title: "Póster Gigante",
+                card_poster_desc: "Imprime en múltiples A4.",
+                card_collage_title: "Estudio Collage",
+                card_collage_desc: "Crea composiciones.",
+                card_watermark_title: "Marca de Agua",
+                card_watermark_desc: "Pon tu sello en todas las páginas.",
+                card_pagenum_title: "Números de Pág",
+                card_pagenum_desc: "Añade numeración auto.",
+                card_sign_title: "Firmar PDF",
+                card_sign_desc: "Dibuja y coloca tu firma.",
+
+                // Sections Headers
+                sect_compress_title: "Comprimir PDF",
+                sect_compress_desc: "Reduce el tamaño de tu archivo PDF.",
+
+                sect_img2pdf_title: "Imagen a PDF",
+                sect_img2pdf_desc: "Convierte tus imágenes con opciones de personalización profesionales.",
+
+                sect_nup_title: "Resumir PDF",
+                sect_nup_desc: "Junta varias páginas en una sola para ahorrar impresión.",
+
+                sect_split_title: "Editor de Páginas",
+                sect_split_desc: "Arrastra para reordenar, elimina páginas o gíralas.",
+
+                sect_merge_title: "Unir PDFs",
+                sect_merge_desc: "Combina múltiples documentos en uno solo. Arrastra para ordenar.",
+
+                sect_pdf2img_title: "PDF a Imágenes",
+                sect_pdf2img_desc: "Convierte cada página de tu PDF en una imagen JPG de alta calidad.",
+
+                sect_ocr_title: "Reconocimiento de Texto (OCR)",
+                sect_ocr_desc: "Extrae texto de imágenes escaneadas o PDFs.",
+
+                sect_scan_title: "Mejorador de Escaneos",
+                sect_scan_desc: "Optimiza fotos de documentos para impresión (Fondo blanco, texto nítido).",
+
+                sect_poster_title: "Creador de Pósters",
+                sect_poster_desc: "Imprime una imagen grande en varias hojas A4.",
+
+                sect_collage_title: "Estudio de Collage",
+                sect_collage_desc: "Combina fotos en diseños predefinidos.",
+
+                sect_watermark_title: "Marca de Agua",
+                sect_watermark_desc: "Agrega texto superpuesto a tu documento.",
+
+                sect_pagenum_title: "Numeración de Páginas",
+                sect_pagenum_desc: "Añade números de página a tu documento.",
+
+                sect_sign_title: "Firmar PDF",
+                sect_sign_desc: "Dibuja tu firma, escribe texto o sube una imagen y colócala en el PDF.",
+
+                // Dropdown
+                drop_organize: "Organizar",
+                drop_convert: "Convertir",
+                drop_edit: "Editar",
+                drop_others: "Otros",
+
+                // Dropdown Tools
+                drop_merge: "Unir PDF",
+                drop_compress: "Comprimir",
+                drop_split: "Dividir PDF",
+                drop_nup: "Resumir PDF",
+                drop_img2pdf: "Img a PDF",
+                drop_pdf2img: "PDF a Img",
+                drop_ocr: "OCR / Texto",
+                drop_scan: "Mejorar Escaneo",
+                drop_watermark: "Marca Agua",
+                drop_pagenum: "Números Pág",
+                drop_sign: "Firmar PDF",
+                drop_poster: "Póster",
+                drop_collage: "Collage",
+
+                // Footer
+                footer_rights: "Todos los derechos reservados.",
+                footer_author: "Autor:"
+            },
+            en: {
+                nav_home: "Home",
+                nav_compress: "Compress",
+                nav_img2pdf: "Img to PDF",
+                nav_nup: "N-Up",
+                nav_split: "Split",
+                nav_merge: "Merge",
+                nav_pdf2img: "PDF to Img",
+                nav_all: "All Tools",
+
+                hero_title: "PDF <span class='text-blue-600 dark:text-blue-400'>Master</span> Suite",
+                hero_desc: "All the tools you need in one place. 100% Private and secure in your browser.",
+
+                card_img2pdf_title: "Img to PDF",
+                card_img2pdf_desc: "Convert photos to PDF.",
+                card_compress_title: "Compress PDF",
+                card_compress_desc: "Reduce file size.",
+                card_nup_title: "N-Up PDF",
+                card_nup_desc: "Multiple pages per sheet.",
+                card_split_title: "Split / Rotate",
+                card_split_desc: "Delete or rotate pages.",
+                card_merge_title: "Merge PDFs",
+                card_merge_desc: "Combine multiple files.",
+                card_pdf2img_title: "PDF to Images",
+                card_pdf2img_desc: "Extract pages as JPG.",
+                card_ocr_title: "OCR / Text",
+                card_ocr_desc: "Extract editable text.",
+                card_scan_title: "Scan Enhancer",
+                card_scan_desc: "Clean and binarize docs.",
+                card_poster_title: "Giant Poster",
+                card_poster_desc: "Print on multiple A4s.",
+                card_collage_title: "Collage Studio",
+                card_collage_desc: "Create compositions.",
+                card_watermark_title: "Watermark",
+                card_watermark_desc: "Stamp all pages.",
+                card_pagenum_title: "Page Numbers",
+                card_pagenum_desc: "Add auto numbering.",
+                card_sign_title: "Sign PDF",
+                card_sign_desc: "Draw and place signature.",
+
+                sect_compress_title: "Compress PDF",
+                sect_compress_desc: "Reduce your PDF file size.",
+
+                sect_img2pdf_title: "Image to PDF",
+                sect_img2pdf_desc: "Convert your images with professional options.",
+
+                sect_nup_title: "N-Up (Summarize)",
+                sect_nup_desc: "Put multiple pages on one sheet to save paper.",
+
+                sect_split_title: "Page Editor",
+                sect_split_desc: "Drag to reorder, delete pages or rotate them.",
+
+                sect_merge_title: "Merge PDFs",
+                sect_merge_desc: "Combine multiple documents into one. Drag to sort.",
+
+                sect_pdf2img_title: "PDF to Images",
+                sect_pdf2img_desc: "Convert each PDF page to a high-quality JPG image.",
+
+                sect_ocr_title: "Text Recognition (OCR)",
+                sect_ocr_desc: "Extract text from scanned images or PDFs.",
+
+                sect_scan_title: "Scan Enhancer",
+                sect_scan_desc: "Optimize document photos (White background, sharp text).",
+
+                sect_poster_title: "Poster Creator",
+                sect_poster_desc: "Print a large image across multiple A4 sheets.",
+
+                sect_collage_title: "Collage Studio",
+                sect_collage_desc: "Combine photos into predefined layouts.",
+
+                sect_watermark_title: "Watermark",
+                sect_watermark_desc: "Add overlay text to your document.",
+
+                sect_pagenum_title: "Page Numbers",
+                sect_pagenum_desc: "Add page numbers to your document.",
+
+                sect_sign_title: "Sign PDF",
+                sect_sign_desc: "Draw your signature, type text or upload an image and place it on the PDF.",
+
+                drop_organize: "Organize",
+                drop_convert: "Convert",
+                drop_edit: "Edit",
+                drop_others: "Others",
+
+                drop_merge: "Merge PDF",
+                drop_compress: "Compress",
+                drop_split: "Split PDF",
+                drop_nup: "N-Up PDF",
+                drop_img2pdf: "Img to PDF",
+                drop_pdf2img: "PDF to Img",
+                drop_ocr: "OCR / Text",
+                drop_scan: "Scan Enhancer",
+                drop_watermark: "Watermark",
+                drop_pagenum: "Page Numbers",
+                drop_sign: "Sign PDF",
+                drop_poster: "Poster",
+                drop_collage: "Collage",
+
+                footer_rights: "All rights reserved.",
+                footer_author: "Author:"
+            }
+        };
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'es' ? 'en' : 'es';
+            localStorage.setItem('lang', currentLang);
+            applyLanguage();
+        }
+
+        function applyLanguage() {
+            document.documentElement.lang = currentLang;
+            document.getElementById('lang-btn-text').textContent = currentLang.toUpperCase();
+
+            const t = translations[currentLang];
+
+            // Apply to all elements with data-i18n attribute
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    if (el.tagName === 'INPUT' && el.type === 'placeholder') {
+                        el.placeholder = t[key];
+                    } else if (key === 'hero_title') {
+                        el.innerHTML = t[key]; // Special case for HTML content
+                    } else if (el.childNodes.length > 0) {
+                        // Try to preserve icons if they are creating children. 
+                        // Strategy: Update text node only if mixed content? 
+                        // For simplicity in this project's structure, standard replacement is mostly fine
+                        // BUT for buttons with icons, we need to be careful.
+                        // Let's check if there is a direct text node to replace or innerHTML.
+
+                        // Simple approach: if element has specific structure constraint, handle manually
+                        // Else, just innerHTML or textContent.
+
+                        // For tool buttons (icon + text), we'll wrap text in span or just rebuild.
+                        // Let's look at nav buttons: <i data-lucide...></i> Text
+                        // We should wrap the text in a span or just replace the last child if it's text.
+
+                        let icon = el.querySelector('i') || el.querySelector('svg');
+                        if (icon) {
+                            // Preserve icon
+                            const iconHtml = icon.outerHTML;
+                            el.innerHTML = iconHtml + ' ' + t[key];
+                            lucide.createIcons(); // Re-init icons just in case
+                        } else {
+                            el.innerHTML = t[key];
+                        }
+                    } else {
+                        el.textContent = t[key];
+                    }
+                }
+            });
+        }
+
+        // Init Load
+        applyLanguage();
+
+
 
         function toggleDarkMode() {
             const html = document.documentElement;
@@ -3091,4 +3443,3 @@
 </body>
 
 </html>
-```
