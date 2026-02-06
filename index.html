@@ -748,6 +748,13 @@
                             </div>
                         </div>
 
+                        <script>
+                            // Agregar listeners para actualizar preview al cambiar opciones
+                            ['img-page-size', 'img-orientation', 'img-margin'].forEach(id => {
+                                document.getElementById(id).addEventListener('change', renderImg2PdfPreview);
+                            });
+                        </script>
+
                         <!-- NUEVA OPCIÓN: CREAR ARCHIVOS INDEPENDIENTES -->
                         <div class="flex items-center gap-3 pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
                             <div
@@ -765,33 +772,54 @@
                         </div>
                     </div>
 
-                    <!-- Mensaje informativo sobre el modo duplicar -->
-                    <div id="duplicate-info"
-                        class="hidden mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-xl text-sm border border-blue-100 dark:border-blue-800 flex items-start gap-3">
-                        <i data-lucide="info" class="w-5 h-5 shrink-0 mt-0.5"></i>
-                        <div>
-                            <strong>Modo Duplicar Inteligente:</strong><br>
-                            Este modo ignora las configuraciones anteriores. Analiza automáticamente cada imagen y la
-                            coloca dos veces en una hoja A4 (con línea de corte) para maximizar el ahorro de papel.
-                        </div>
+                    <!-- BOTÓN DE PREVISUALIZACIÓN -->
+                    <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button onclick="togglePreviewImg2Pdf()"
+                            class="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2">
+                            <i data-lucide="eye" class="w-4 h-4"></i> Ver Previsualización de Página
+                        </button>
                     </div>
-
-                    <div id="drop-zone-img"
-                        class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        onclick="document.getElementById('file-input-img').click()">
-                        <i data-lucide="upload" class="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-3"></i>
-                        <p class="font-medium text-slate-700 dark:text-slate-300">Sube imágenes o PDFs</p>
-                        <p class="text-xs text-slate-400 mt-1">Arrastra y suelta aquí</p>
-                        <input type="file" id="file-input-img" class="hidden" multiple
-                            accept="image/*,.pdf,.heic,.heif,.tiff,.tif,.webp,.bmp">
-                    </div>
-
-                    <!-- GRID DE IMÁGENES -->
-                    <div id="img-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 empty:hidden"></div>
-                    <button onclick="generateImgPDF()" id="btn-gen-img"
-                        class="hidden w-full mt-6 bg-slate-900 dark:bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 dark:shadow-none">Descargar
-                        PDF Convertido</button>
                 </div>
+
+                <!-- AREA DE PREVISUALIZACIÓN (HIDDEN BY DEFAULT) -->
+                <div id="img2pdf-preview-area"
+                    class="hidden mb-6 bg-slate-200/50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center">
+                    <h4 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Vista Previa (Primera Imagen)
+                    </h4>
+                    <div class="relative shadow-xl overflow-hidden bg-white">
+                        <canvas id="img2pdf-preview-canvas" class="max-w-full max-h-[500px]"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">La vista previa muestra cómo se verá la primera imagen con la
+                        configuración actual.</p>
+                </div>
+
+                <!-- Mensaje informativo sobre el modo duplicar (ACTUALIZADO) -->
+                <div id="duplicate-info"
+                    class="hidden mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-xl text-sm border border-blue-100 dark:border-blue-800 flex items-start gap-3">
+                    <i data-lucide="info" class="w-5 h-5 shrink-0 mt-0.5"></i>
+                    <div>
+                        <strong>Modo Duplicar Inteligente:</strong><br>
+                        Se colocarán 2 copias de la imagen por página. El sistema intentará detectar automáticamente la
+                        mejor orientación si seleccionas "Automática".
+                    </div>
+                </div>
+
+                <div id="drop-zone-img"
+                    class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    onclick="document.getElementById('file-input-img').click()">
+                    <i data-lucide="upload" class="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-3"></i>
+                    <p class="font-medium text-slate-700 dark:text-slate-300">Sube imágenes o PDFs</p>
+                    <p class="text-xs text-slate-400 mt-1">Arrastra y suelta aquí</p>
+                    <input type="file" id="file-input-img" class="hidden" multiple
+                        accept="image/*,.pdf,.heic,.heif,.tiff,.tif,.webp,.bmp">
+                </div>
+
+                <!-- GRID DE IMÁGENES -->
+                <div id="img-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 empty:hidden"></div>
+                <button onclick="generateImgPDF()" id="btn-gen-img"
+                    class="hidden w-full mt-6 bg-slate-900 dark:bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 dark:shadow-none">Descargar
+                    PDF Convertido</button>
+            </div>
             </div>
         </section>
 
@@ -2132,14 +2160,15 @@
             if (mode === 'standard') {
                 stdBtn.className = `${baseClass} ${activeClass}`;
                 dupBtn.className = `${baseClass} ${inactiveClass}`;
-                dupInfo.classList.add('hidden');
-                stdOptions.classList.remove('hidden'); // Mostrar opciones
+                // dupInfo.classList.add('hidden'); // Ocultamos la info antigua
+                stdOptions.classList.remove('hidden');
             } else {
                 stdBtn.className = `${baseClass} ${inactiveClass}`;
                 dupBtn.className = `${baseClass} ${activeClass}`;
-                dupInfo.classList.remove('hidden');
-                stdOptions.classList.add('hidden'); // Ocultar opciones (no aplican en duplicar)
+                // dupInfo.classList.remove('hidden'); // Ya no mostramos el mensaje de "ignora configs"
+                stdOptions.classList.remove('hidden'); // AHORA MOSTRAMOS OPCIONES EN DUPLICATE TAMBIÉN
             }
+            renderImg2PdfPreview(); // Actualizar preview al cambiar modo
         }
 
         document.getElementById('file-input-img').addEventListener('change', async (e) => { await handleImgFiles(e.target.files); });
@@ -2244,6 +2273,160 @@
         // ==========================================
         // LÓGICA DE GENERACIÓN MEJORADA (TIPO FREEPDFCONVERT)
         // ==========================================
+        // ==========================================
+        // PREVIEW logic
+        // ==========================================
+        function togglePreviewImg2Pdf() {
+            const area = document.getElementById('img2pdf-preview-area');
+            if (area.classList.contains('hidden')) {
+                area.classList.remove('hidden');
+                renderImg2PdfPreview();
+            } else {
+                area.classList.add('hidden');
+            }
+        }
+
+        async function renderImg2PdfPreview() {
+            const area = document.getElementById('img2pdf-preview-area');
+            // If hidden, do nothing unless we force? No, save resources.
+            if (area.classList.contains('hidden')) return;
+
+            if (imgFiles.length === 0) {
+                const cvs = document.getElementById('img2pdf-preview-canvas');
+                cvs.width = 300; cvs.height = 150;
+                const ctx = cvs.getContext('2d');
+                ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0, 0, cvs.width, cvs.height);
+                ctx.fillStyle = '#94a3b8'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText("Sube una imagen para previsualizar", cvs.width / 2, cvs.height / 2);
+                return;
+            }
+
+            const imgFile = imgFiles[0];
+            const imgObj = await loadImage(imgFile.data);
+
+            const cvs = document.getElementById('img2pdf-preview-canvas');
+            const ctx = cvs.getContext('2d');
+
+            const pageSizeOpt = document.getElementById('img-page-size').value;
+            const orientOpt = document.getElementById('img-orientation').value;
+            const marginOpt = document.getElementById('img-margin').value;
+
+            // Dimensions in mm
+            const sizes = {
+                'a0': { w: 841, h: 1189 }, 'a1': { w: 594, h: 841 }, 'a2': { w: 420, h: 594 },
+                'a3': { w: 297, h: 420 }, 'a4': { w: 210, h: 297 }, 'a5': { w: 148.5, h: 210 },
+                'a6': { w: 105, h: 148.5 }, 'a7': { w: 74, h: 105 }, 'a8': { w: 52, h: 74 },
+                'a9': { w: 37, h: 52 }, 'a10': { w: 26, h: 37 },
+                'letter': { w: 215.9, h: 279.4 }, 'legal': { w: 215.9, h: 355.6 }
+            };
+
+            let pageW, pageH;
+
+            // Determine Page Dimensions (mm)
+            if (pageSizeOpt === 'fit') {
+                if (imgMode === 'duplicate') {
+                    // Auto-fallback to A4 if fit selected in duplicate
+                    pageW = 210; pageH = 297;
+                } else {
+                    pageW = imgObj.width * 0.264583;
+                    pageH = imgObj.height * 0.264583;
+                }
+            } else {
+                const s = sizes[pageSizeOpt] || sizes['a4'];
+                pageW = s.w; pageH = s.h;
+            }
+
+            // Determine Orientation
+            let finalOrient = 'p';
+            if (orientOpt === 'auto') {
+                if (imgMode === 'standard') {
+                    finalOrient = (imgObj.width > imgObj.height) ? 'l' : 'p';
+                } else {
+                    // DUPLICATE AUTO LOGIC
+                    const pScale = Math.min(Math.min(pageW, pageH) / imgObj.width, (Math.max(pageW, pageH) / 2) / imgObj.height);
+                    const lScale = Math.min((Math.max(pageW, pageH) / 2) / imgObj.width, Math.min(pageW, pageH) / imgObj.height);
+                    finalOrient = (lScale > pScale) ? 'l' : 'p';
+                }
+            } else {
+                finalOrient = orientOpt;
+            }
+
+            // Swap page dimensions if landscape
+            let displayW, displayH;
+            if (finalOrient === 'l') {
+                displayW = Math.max(pageW, pageH);
+                displayH = Math.min(pageW, pageH);
+            } else {
+                displayW = Math.min(pageW, pageH);
+                displayH = Math.max(pageW, pageH);
+            }
+
+            // Canvas Setup (Scale to fit max 500px height or width)
+            const scaleFactor = 500 / displayH;
+            cvs.height = 500;
+            cvs.width = displayW * scaleFactor;
+
+            // Draw Page Background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.strokeRect(0, 0, cvs.width, cvs.height);
+
+            // Draw Content
+            let margin = 0;
+            if (marginOpt === 'small') margin = 10;
+            if (marginOpt === 'normal') margin = 20;
+            margin *= scaleFactor; // Convert mm to px
+
+            if (imgMode === 'standard') {
+                const drawAreaW = cvs.width - (margin * 2);
+                const drawAreaH = cvs.height - (margin * 2);
+                drawContain(ctx, imgObj, margin, margin, drawAreaW, drawAreaH);
+            } else {
+                // DUPLICATE DRAW
+                const isLand = displayW > displayH;
+
+                let boxW, boxH, box1X, box1Y, box2X, box2Y;
+                let cutX1, cutY1, cutX2, cutY2;
+
+                if (isLand) {
+                    // Landscape Page: Side by Side
+                    boxW = cvs.width / 2;
+                    boxH = cvs.height;
+
+                    const innerBoxW = boxW - (margin * 2);
+                    const innerBoxH = boxH - (margin * 2);
+
+                    drawContain(ctx, imgObj, margin, margin, innerBoxW, innerBoxH);
+                    drawContain(ctx, imgObj, boxW + margin, margin, innerBoxW, innerBoxH);
+
+                    cutX1 = boxW; cutY1 = 10; cutX2 = boxW; cutY2 = cvs.height - 10;
+
+                } else {
+                    // Portrait Page: Vertical Stack
+                    boxW = cvs.width;
+                    boxH = cvs.height / 2;
+
+                    const innerBoxW = boxW - (margin * 2);
+                    const innerBoxH = boxH - (margin * 2);
+
+                    drawContain(ctx, imgObj, margin, margin, innerBoxW, innerBoxH);
+                    drawContain(ctx, imgObj, margin, boxH + margin, innerBoxW, innerBoxH);
+
+                    cutX1 = 10; cutY1 = boxH; cutX2 = cvs.width - 10; cutY2 = boxH;
+                }
+
+                // Draw Cut Line
+                ctx.strokeStyle = '#94a3b8';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(cutX1, cutY1);
+                ctx.lineTo(cutX2, cutY2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
         async function generateImgPDF() {
             if (!imgFiles.length) return;
             showLoader("Generando PDF...");
@@ -2257,21 +2440,11 @@
             const marginOpt = document.getElementById('img-margin').value; // none, small, normal
             const separateFiles = document.getElementById('img-separate-files').checked;
 
-            // Definir dimensiones base (en mm) extendidas
             const sizes = {
-                'a0': { w: 841, h: 1189 },
-                'a1': { w: 594, h: 841 },
-                'a2': { w: 420, h: 594 },
-                'a3': { w: 297, h: 420 },
-                'a4': { w: 210, h: 297 },
-                'a5': { w: 148.5, h: 210 },
-                'a6': { w: 105, h: 148.5 },
-                'a7': { w: 74, h: 105 },
-                'a8': { w: 52, h: 74 },
-                'a9': { w: 37, h: 52 },
-                'a10': { w: 26, h: 37 },
-                'letter': { w: 215.9, h: 279.4 },
-                'legal': { w: 215.9, h: 355.6 }
+                'a0': { w: 841, h: 1189 }, 'a1': { w: 594, h: 841 }, 'a2': { w: 420, h: 594 },
+                'a3': { w: 297, h: 420 }, 'a4': { w: 210, h: 297 }, 'a5': { w: 148.5, h: 210 },
+                'a6': { w: 105, h: 148.5 }, 'a7': { w: 74, h: 105 }, 'a8': { w: 52, h: 74 },
+                'letter': { w: 215.9, h: 279.4 }, 'legal': { w: 215.9, h: 355.6 }
             };
 
             // Definir márgenes (en mm)
@@ -2279,16 +2452,12 @@
             if (marginOpt === 'small') marginVal = 10;
             if (marginOpt === 'normal') marginVal = 20;
 
-            // Si es archivos separados, preparamos el ZIP
             let zip = null;
-            if (separateFiles && imgMode === 'standard') {
-                zip = new JSZip();
-            }
+            if (separateFiles && imgMode === 'standard') zip = new JSZip();
 
-            // Doc global (si no es separado)
             let doc = null;
-            if (!separateFiles) {
-                doc = new jsPDF({ format: 'a4', unit: 'mm' });
+            if (!separateFiles || imgMode === 'duplicate') {
+                doc = new jsPDF({ format: 'a4', unit: 'mm' }); // Default init
                 doc.deletePage(1);
             }
 
@@ -2299,122 +2468,112 @@
                 const imgH = rotatedImg.h;
                 const ratio = imgW / imgH;
 
-                // Si estamos en modo archivos separados, creamos un doc nuevo por cada imagen
                 let currentDoc = doc;
                 if (separateFiles && imgMode === 'standard') {
                     currentDoc = new jsPDF({ format: 'a4', unit: 'mm' });
                     currentDoc.deletePage(1);
                 }
 
-                if (imgMode === 'standard') {
-                    // Lógica para modo Estándar con opciones
-                    let pageW, pageH, orientation;
+                // Determine Page Size & Orientation logic (Shared)
+                let pageW, pageH, orientation;
 
-                    // 1. Determinar Tamaño y Orientación
-                    if (pageSizeOpt === 'fit') {
-                        // Ajustar página al tamaño de la imagen (pixel -> mm aprox)
-                        // 1px = 0.264583 mm
-                        pageW = imgW * 0.264583;
-                        pageH = imgH * 0.264583;
-                        orientation = pageW > pageH ? 'l' : 'p';
-                        // Forzar sin margen en fit si el usuario eligió fit (aunque a veces quieren margen)
-                        // Si eligió 'fit', tiene sentido que no haya márgenes blancos extraños.
-                        if (marginOpt === 'none') marginVal = 0;
+                if (pageSizeOpt === 'fit') {
+                    if (imgMode === 'duplicate') {
+                        // Fallback for duplicate fit -> A4 (Standard)
+                        const s = sizes['a4'];
+                        pageW = s.w; pageH = s.h; // Default portrait basis
                     } else {
-                        // Tamaño fijo
-                        const baseSize = sizes[pageSizeOpt] || sizes['a4'];
-
-                        // Determinar orientación de la PÁGINA
-                        if (orientOpt === 'auto') {
-                            orientation = ratio > 1 ? 'l' : 'p';
-                        } else {
-                            orientation = orientOpt;
-                        }
-
-                        // Asignar ancho/alto según orientación
-                        if (orientation === 'p') {
-                            pageW = Math.min(baseSize.w, baseSize.h);
-                            pageH = Math.max(baseSize.w, baseSize.h);
-                        } else {
-                            pageW = Math.max(baseSize.w, baseSize.h);
-                            pageH = Math.min(baseSize.w, baseSize.h);
-                        }
+                        pageW = imgW * 0.264583; pageH = imgH * 0.264583;
+                        if (marginOpt === 'none') marginVal = 0;
                     }
+                } else {
+                    const s = sizes[pageSizeOpt] || sizes['a4'];
+                    pageW = s.w; pageH = s.h;
+                }
 
-                    currentDoc.addPage([pageW, pageH], orientation);
-
-                    // 2. Calcular área disponible para dibujar
-                    const drawAreaW = pageW - (marginVal * 2);
-                    const drawAreaH = pageH - (marginVal * 2);
-
-                    // 3. Calcular dimensiones de imagen (Fit inside)
-                    let finalW = drawAreaW;
-                    let finalH = finalW / ratio;
-
-                    if (finalH > drawAreaH) {
-                        finalH = drawAreaH;
-                        finalW = finalH * ratio;
+                // Orientation Optimization
+                if (orientOpt === 'auto') {
+                    if (imgMode === 'standard') {
+                        orientation = ratio > 1 ? 'l' : 'p';
+                    } else {
+                        // Duplicate Optimization
+                        const pScale = Math.min(Math.min(pageW, pageH) / imgW, (Math.max(pageW, pageH) / 2) / imgH);
+                        const lScale = Math.min((Math.max(pageW, pageH) / 2) / imgW, Math.min(pageW, pageH) / imgH);
+                        orientation = (lScale > pScale) ? 'l' : 'p';
                     }
+                } else {
+                    orientation = orientOpt;
+                }
 
-                    // 4. Centrar imagen
+                // Set final dimensions passed to addPage
+                let finalPageW, finalPageH;
+                if (orientation === 'p') {
+                    finalPageW = Math.min(pageW, pageH); finalPageH = Math.max(pageW, pageH);
+                } else {
+                    finalPageW = Math.max(pageW, pageH); finalPageH = Math.min(pageW, pageH);
+                }
+
+                currentDoc.addPage([finalPageW, finalPageH], orientation);
+
+                // DRAWING
+                const drawAreaW = finalPageW - (marginVal * 2);
+                const drawAreaH = finalPageH - (marginVal * 2);
+
+                if (imgMode === 'standard') {
+                    let finalW = drawAreaW; let finalH = finalW / ratio;
+                    if (finalH > drawAreaH) { finalH = drawAreaH; finalW = finalH * ratio; }
                     const x = marginVal + (drawAreaW - finalW) / 2;
                     const y = marginVal + (drawAreaH - finalH) / 2;
-
                     currentDoc.addImage(imgData, 'JPEG', x, y, finalW, finalH);
 
-                    // Si es separado, guardar en el ZIP
                     if (separateFiles) {
                         zip.file(`documento_${i + 1}.pdf`, currentDoc.output('blob'));
                     }
 
-                }
-                else if (imgMode === 'duplicate') {
-                    // Modo duplicar NO soporta archivos separados lógicamente por diseño (es para ahorrar papel)
-                    // Usamos siempre el doc único.
-                    if (!doc) doc = new jsPDF({ format: 'a4', unit: 'mm' }); // Fallback si se rompió arriba
+                } else if (imgMode === 'duplicate') {
+                    // Logic: Split page in 2
+                    // If Landscape Page -> Vertical Split (Left/Right)
+                    // If Portrait Page -> Horizontal Split (Top/Bottom)
 
-                    const isLandscapeImg = imgW > imgH;
-                    let pageWidth, pageHeight, boxW, boxH, cutLineX1, cutLineY1, cutLineX2, cutLineY2, scissorX, scissorY;
-                    let pageOrientation;
+                    const isLandPage = finalPageW > finalPageH;
+                    let boxW, boxH, b1X, b1Y, b2X, b2Y;
+                    let cutX1, cutY1, cutX2, cutY2;
 
-                    if (isLandscapeImg) {
-                        pageOrientation = 'p'; pageWidth = 210; pageHeight = 297;
-                        boxW = pageWidth - 20; boxH = (pageHeight / 2) - 20;
-                        cutLineX1 = 10; cutLineY1 = pageHeight / 2; cutLineX2 = pageWidth - 10; cutLineY2 = pageHeight / 2;
-                        scissorX = pageWidth / 2; scissorY = (pageHeight / 2) - 2;
-                        doc.addPage('a4', 'p');
-
-                        const drawInBox = (bx, by, bw, bh) => {
-                            let drawW = bw; let drawH = bw * (imgH / imgW);
-                            if (drawH > bh) { drawH = bh; drawW = bh * (imgW / imgH); }
-                            const x = bx + (bw - drawW) / 2; const y = by + (bh - drawH) / 2;
-                            doc.addImage(imgData, 'JPEG', x, y, drawW, drawH);
-                        };
-                        drawInBox(10, 10, boxW, boxH);
-                        drawInBox(10, (pageHeight / 2) + 10, boxW, boxH);
+                    if (isLandPage) {
+                        boxW = finalPageW / 2; boxH = finalPageH;
+                        b1X = 0; b1Y = 0;
+                        b2X = boxW; b2Y = 0;
+                        // Cut Line
+                        cutX1 = boxW; cutY1 = 10; cutX2 = boxW; cutY2 = finalPageH - 10;
                     } else {
-                        pageOrientation = 'l'; pageWidth = 297; pageHeight = 210;
-                        boxW = (pageWidth / 2) - 20; boxH = pageHeight - 20;
-                        cutLineX1 = pageWidth / 2; cutLineY1 = 10; cutLineX2 = pageWidth / 2; cutLineY2 = pageHeight - 10;
-                        scissorX = (pageWidth / 2) - 2; scissorY = pageHeight / 2;
-                        doc.addPage('a4', 'l');
-                        const drawInBox = (bx, by, bw, bh) => {
-                            let drawH = bh; let drawW = bh * (imgW / imgH);
-                            if (drawW > bw) { drawW = bw; drawH = bw * (imgW / imgH); }
-                            const x = bx + (bw - drawW) / 2; const y = by + (bh - drawH) / 2;
-                            doc.addImage(imgData, 'JPEG', x, y, drawW, drawH);
-                        };
-                        drawInBox(10, 10, boxW, boxH);
-                        drawInBox((pageWidth / 2) + 10, 10, boxW, boxH);
+                        boxW = finalPageW; boxH = finalPageH / 2;
+                        b1X = 0; b1Y = 0;
+                        b2X = 0; b2Y = boxH;
+                        // Cut Line
+                        cutX1 = 10; cutY1 = boxH; cutX2 = finalPageW - 10; cutY2 = boxH;
                     }
-                    doc.setLineDashPattern([3, 3], 0); doc.setDrawColor(150);
-                    doc.line(cutLineX1, cutLineY1, cutLineX2, cutLineY2);
-                    doc.setFontSize(10); doc.setTextColor(150);
-                    if (pageOrientation === 'l') { doc.text("- Cortar -", scissorX, 10, { angle: 90 }); } else { doc.text("- Cortar aquí -", scissorX, scissorY, { align: 'center' }); }
+
+                    // Helper to draw in box honoring margin
+                    const drawInBox = (bx, by, bw, bh) => {
+                        const innerW = bw - (marginVal * 2);
+                        const innerH = bh - (marginVal * 2);
+                        let dW = innerW; let dH = dW / ratio;
+                        if (dH > innerH) { dH = innerH; dW = dH * ratio; }
+                        const imgX = bx + marginVal + (innerW - dW) / 2;
+                        const imgY = by + marginVal + (innerH - dH) / 2;
+                        currentDoc.addImage(imgData, 'JPEG', imgX, imgY, dW, dH);
+                    };
+
+                    drawInBox(b1X, b1Y, boxW, boxH);
+                    drawInBox(b2X, b2Y, boxW, boxH);
+
+                    // Draw Cut Line
+                    currentDoc.setLineDashPattern([3, 3], 0); currentDoc.setDrawColor(150);
+                    currentDoc.line(cutX1, cutY1, cutX2, cutY2);
+                    currentDoc.setFontSize(10); currentDoc.setTextColor(150);
                 }
             }
 
-            // FINALIZAR DESCARGA
             if (separateFiles && imgMode === 'standard') {
                 const content = await zip.generateAsync({ type: "blob" });
                 const a = document.createElement("a");
