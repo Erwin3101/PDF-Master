@@ -2385,43 +2385,107 @@
             } else {
                 // DUPLICATE DRAW
                 const isLand = displayW > displayH;
+                const gap = 30 * scaleFactor; // 30mm gap
+                const pad = 5 * scaleFactor; // 5mm padding from edges
 
                 let boxW, boxH, box1X, box1Y, box2X, box2Y;
                 let cutX1, cutY1, cutX2, cutY2;
+                let textX, textY, textAngle = 0;
 
                 if (isLand) {
-                    // Landscape Page: Side by Side
-                    boxW = cvs.width / 2;
+                    // Landscape Page: Side by Side (GAP VERTICAL)
+                    const totalW = cvs.width;
+                    const availableW = totalW - gap;
+
+                    boxW = availableW / 2;
                     boxH = cvs.height;
 
-                    const innerBoxW = boxW - (margin * 2);
-                    const innerBoxH = boxH - (margin * 2);
+                    // Apply padding inside the box
+                    const innerBoxW = boxW - (pad * 2);
+                    const innerBoxH = boxH - (pad * 2);
 
-                    drawContain(ctx, imgObj, margin, margin, innerBoxW, innerBoxH);
-                    drawContain(ctx, imgObj, boxW + margin, margin, innerBoxW, innerBoxH);
+                    // Box 1 (Left) - Add left pad
+                    drawContain(ctx, imgObj, margin + pad, margin + pad, innerBoxW, innerBoxH);
+                    // Box 2 (Right) - Add left pad (offset by boxW + gap)
+                    drawContain(ctx, imgObj, boxW + gap + margin + pad, margin + pad, innerBoxW, innerBoxH);
 
-                    cutX1 = boxW; cutY1 = 10; cutX2 = boxW; cutY2 = cvs.height - 10;
+                    // Cut Line
+                    cutX1 = boxW + (gap / 2); cutY1 = 10;
+                    cutX2 = boxW + (gap / 2); cutY2 = cvs.height - 10;
+
+                    // Text
+                    textX = cutX1; textY = cvs.height / 2; textAngle = -90 * Math.PI / 180;
 
                 } else {
-                    // Portrait Page: Vertical Stack
+                    // Portrait Page: Vertical Stack (GAP HORIZONTAL)
+                    const totalH = cvs.height;
+                    const availableH = totalH - gap;
+
                     boxW = cvs.width;
-                    boxH = cvs.height / 2;
+                    boxH = availableH / 2;
 
-                    const innerBoxW = boxW - (margin * 2);
-                    const innerBoxH = boxH - (margin * 2);
+                    // Apply padding
+                    const innerBoxW = boxW - (pad * 2);
+                    const innerBoxH = boxH - (pad * 2);
 
-                    drawContain(ctx, imgObj, margin, margin, innerBoxW, innerBoxH);
-                    drawContain(ctx, imgObj, margin, boxH + margin, innerBoxW, innerBoxH);
+                    // Box 1 (Top)
+                    drawContain(ctx, imgObj, margin + pad, margin + pad, innerBoxW, innerBoxH);
+                    // Box 2 (Bottom)
+                    drawContain(ctx, imgObj, margin + pad, boxH + gap + margin + pad, innerBoxW, innerBoxH);
 
-                    cutX1 = 10; cutY1 = boxH; cutX2 = cvs.width - 10; cutY2 = boxH;
+                    // Cut Line
+                    cutX1 = 10; cutY1 = boxH + (gap / 2);
+                    cutX2 = cvs.width - 10; cutY2 = boxH + (gap / 2);
+
+                    // Text
+                    textX = cvs.width / 2; textY = cutY1;
                 }
 
-                // Draw Cut Line
+                // Draw Text & Split Line
+                ctx.save();
+                ctx.translate(textX, textY);
+                ctx.rotate(textAngle);
+                ctx.fillStyle = '#94a3b8'; // Lighter gray (Slate 400)
+                ctx.font = 'normal 7px sans-serif'; // 7px, normal weight
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const textW = ctx.measureText("- Recortar aquí -").width;
+                const textGap = (textW / 2) + 4; // Gap from center to line start
+
+                // Draw Text
+                ctx.fillText("- Recortar aquí -", 0, 0);
+                ctx.restore();
+
+                // Draw Split Lines (Skip text)
                 ctx.strokeStyle = '#94a3b8';
                 ctx.setLineDash([5, 5]);
                 ctx.beginPath();
-                ctx.moveTo(cutX1, cutY1);
-                ctx.lineTo(cutX2, cutY2);
+
+                if (isLand) {
+                    // Vertical Line (text angle -90)
+                    // Line goes from top (10) to bottom (h-10)
+                    // Text is at center (h/2)
+                    // Top Segment: 10 to (center - gap)
+                    // Bottom Segment: (center + gap) to (h-10)
+                    const cY = cvs.height / 2;
+                    ctx.moveTo(cutX1, 10);
+                    ctx.lineTo(cutX1, cY - textGap);
+
+                    ctx.moveTo(cutX1, cY + textGap);
+                    ctx.lineTo(cutX1, cvs.height - 10);
+                } else {
+                    // Horizontal Line (text angle 0)
+                    // Line goes from left (10) to right (w-10)
+                    // Text is at center (w/2)
+                    // Left Segment: 10 to (center - gap)
+                    // Right Segment: (center + gap) to (w-10)
+                    const cX = cvs.width / 2;
+                    ctx.moveTo(10, cutY1);
+                    ctx.lineTo(cX - textGap, cutY1);
+
+                    ctx.moveTo(cX + textGap, cutY1);
+                    ctx.lineTo(cvs.width - 10, cutY1);
+                }
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
@@ -2497,8 +2561,21 @@
                         orientation = ratio > 1 ? 'l' : 'p';
                     } else {
                         // Duplicate Optimization
-                        const pScale = Math.min(Math.min(pageW, pageH) / imgW, (Math.max(pageW, pageH) / 2) / imgH);
-                        const lScale = Math.min((Math.max(pageW, pageH) / 2) / imgW, Math.min(pageW, pageH) / imgH);
+                        // Duplicate Optimization
+                        const gap = 30; // 30mm gap for cutting
+                        const pad = 5; // 5mm padding edge
+                        // Logic: (PageDim - Gap) / 2
+
+                        // P Scale (Total Height split)
+                        const pSubH = (Math.max(pageW, pageH) - gap - (pad * 2)) / 2;
+                        const pSubW = Math.min(pageW, pageH) - (pad * 2);
+                        const pScale = Math.min(pSubW / imgW, pSubH / imgH);
+
+                        // L Scale (Total Width split)
+                        const lSubW = (Math.max(pageW, pageH) - gap - (pad * 2)) / 2;
+                        const lSubH = Math.min(pageW, pageH) - (pad * 2);
+                        const lScale = Math.min(lSubW / imgW, lSubH / imgH);
+
                         orientation = (lScale > pScale) ? 'l' : 'p';
                     }
                 } else {
@@ -2531,46 +2608,97 @@
                     }
 
                 } else if (imgMode === 'duplicate') {
-                    // Logic: Split page in 2
-                    // If Landscape Page -> Vertical Split (Left/Right)
-                    // If Portrait Page -> Horizontal Split (Top/Bottom)
+                    currentDoc.setFontSize(7); currentDoc.setTextColor(180); // Lighter text (approx #b4b4b4)
+                    // Logic: Split page in 2 with GAP and PADDING
+                    const gap = 30; // 30mm gap
+                    const pad = 5;  // 5mm padding edge
 
                     const isLandPage = finalPageW > finalPageH;
                     let boxW, boxH, b1X, b1Y, b2X, b2Y;
                     let cutX1, cutY1, cutX2, cutY2;
+                    let textX, textY, textAngle = 0;
 
                     if (isLandPage) {
-                        boxW = finalPageW / 2; boxH = finalPageH;
+                        // Landscape Page -> Vertical Split (Left | Gap | Right)
+                        const availableW = finalPageW - gap;
+                        boxW = availableW / 2;
+                        boxH = finalPageH;
+
                         b1X = 0; b1Y = 0;
-                        b2X = boxW; b2Y = 0;
+                        b2X = boxW + gap; b2Y = 0;
+
                         // Cut Line
-                        cutX1 = boxW; cutY1 = 10; cutX2 = boxW; cutY2 = finalPageH - 10;
+                        cutX1 = boxW + (gap / 2); cutY1 = 10;
+                        cutX2 = boxW + (gap / 2); cutY2 = finalPageH - 10;
+
+                        textX = cutX1; textY = finalPageH / 2; textAngle = 90;
                     } else {
-                        boxW = finalPageW; boxH = finalPageH / 2;
+                        // Portrait Page -> Horizontal Split (Top / Gap / Bottom)
+                        const availableH = finalPageH - gap;
+                        boxW = finalPageW;
+                        boxH = availableH / 2;
+
                         b1X = 0; b1Y = 0;
-                        b2X = 0; b2Y = boxH;
+                        b2X = 0; b2Y = boxH + gap;
+
                         // Cut Line
-                        cutX1 = 10; cutY1 = boxH; cutX2 = finalPageW - 10; cutY2 = boxH;
+                        cutX1 = 10; cutY1 = boxH + (gap / 2);
+                        cutX2 = finalPageW - 10; cutY2 = boxH + (gap / 2);
+
+                        textX = finalPageW / 2; textY = cutY1; textAngle = 0;
                     }
 
-                    // Helper to draw in box honoring margin
+                    // Helper to draw in box honoring margin + padding
                     const drawInBox = (bx, by, bw, bh) => {
-                        const innerW = bw - (marginVal * 2);
-                        const innerH = bh - (marginVal * 2);
+                        // Use marginVal from settings OR default 0 in this mode? 
+                        // User asked for "good space". Let's use pad + marginVal.
+                        const totalPad = pad + marginVal;
+
+                        const innerW = bw - (totalPad * 2);
+                        const innerH = bh - (totalPad * 2);
+
+                        if (innerW <= 0 || innerH <= 0) return; // Prevention
+
                         let dW = innerW; let dH = dW / ratio;
                         if (dH > innerH) { dH = innerH; dW = dH * ratio; }
-                        const imgX = bx + marginVal + (innerW - dW) / 2;
-                        const imgY = by + marginVal + (innerH - dH) / 2;
+
+                        const imgX = bx + totalPad + (innerW - dW) / 2;
+                        const imgY = by + totalPad + (innerH - dH) / 2;
+
                         currentDoc.addImage(imgData, 'JPEG', imgX, imgY, dW, dH);
                     };
 
                     drawInBox(b1X, b1Y, boxW, boxH);
                     drawInBox(b2X, b2Y, boxW, boxH);
 
-                    // Draw Cut Line
-                    currentDoc.setLineDashPattern([3, 3], 0); currentDoc.setDrawColor(150);
-                    currentDoc.line(cutX1, cutY1, cutX2, cutY2);
-                    currentDoc.setFontSize(10); currentDoc.setTextColor(150);
+                    // Draw Text First to calculate GAP
+                    const txt = "- Recortar aquí -";
+                    const txtW = currentDoc.getTextWidth(txt);
+                    const txtGap = (txtW / 2) + 2; // mm gap from center
+
+                    if (textAngle !== 0) {
+                        currentDoc.text(txt, textX, textY, { angle: textAngle, align: 'center', baseline: 'middle' });
+                    } else {
+                        currentDoc.text(txt, textX, textY, { align: 'center', baseline: 'middle' });
+                    }
+
+                    // Draw Split Lines
+                    currentDoc.setLineDashPattern([3, 3], 0); currentDoc.setDrawColor(180); // Lighter line (approx #b4b4b4)
+
+                    if (isLandPage) {
+                        // Vertical Cut Line (Left | Right)
+                        // Top Segment
+                        currentDoc.line(cutX1, 10, cutX1, (finalPageH / 2) - txtGap);
+                        // Bottom Segment
+                        currentDoc.line(cutX1, (finalPageH / 2) + txtGap, cutX1, finalPageH - 10);
+                    } else {
+                        // Horizontal Cut Line (Top / Bottom)
+                        // Left Segment
+                        currentDoc.line(10, cutY1, (finalPageW / 2) - txtGap, cutY1);
+                        // Right Segment
+                        currentDoc.line((finalPageW / 2) + txtGap, cutY1, finalPageW - 10, cutY1);
+                    }
+
                 }
             }
 
