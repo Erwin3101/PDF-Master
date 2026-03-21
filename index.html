@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Master Suite v5.2 - Enhanced</title>
+    <!-- Cross-Origin Headers Fix for GitHub Pages -->
+    <script src="coi-serviceworker.js"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -38,6 +40,15 @@
 
     <!-- LIBRERÍA SORTABLEJS (PARA DRAG & DROP) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+    <!-- LIBRERÍA DE REMOVER FONDO (IA) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@imgly/background-removal": "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.js"
+      }
+    }
+    </script>
 
     <!-- LIBRERÍAS DE COMPATIBILIDAD DE IMÁGENES -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js"></script>
@@ -102,6 +113,11 @@
                         </button>
                         </button>
 
+                        <button onclick="switchTool('bgrem')" id="nav-bgrem"
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_bgrem">
+                            <i data-lucide="eraser" class="w-4 h-4"></i> Borrar Fondo
+                        </button>
                         <button onclick="switchTool('compress')" id="nav-compress"
                             class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
                             data-i18n="nav_compress">
@@ -146,6 +162,15 @@
                             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-2 animate-fade-in max-h-[80vh] overflow-y-auto">
 
                                 <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider"
+                                data-i18n="drop_ai">IA & Edición
+                            </div>
+                            <button onclick="switchTool('bgrem')"
+                                class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
+                                <div class="p-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-600 rounded-md"><i
+                                        data-lucide="eraser" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_bgrem">Borrar Fondo (IA)</span>
+                            </button>
+                                <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2"
                                 data-i18n="drop_organize">Organizar
                             </div>
                             <button onclick="switchTool('merge')"
@@ -267,6 +292,20 @@
 
                     <!-- Editor PDF (NUEVO) -->
 
+
+                    <!-- 0. Borrar Fondo (IA) -->
+                    <button onclick="switchTool('bgrem')"
+                        class="home-card bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-800 text-left hover:border-pink-500 transition-all h-full group">
+                        <div
+                            class="bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                            <i data-lucide="eraser" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors"
+                            data-i18n="card_bgrem_title">
+                            Borrar Fondo</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_bgrem_desc">
+                            Elimina el fondo con IA.</p>
+                    </button>
 
                     <!-- 1. Img a PDF -->
                     <button onclick="switchTool('img2pdf')"
@@ -455,6 +494,46 @@
                 </div>
 
 
+            </div>
+        </section>
+
+        <!-- 0. BORRAR FONDO (IA) -->
+        <section id="section-bgrem" class="hidden animate-fade-in">
+            <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                <div class="bg-pink-50/50 dark:bg-pink-900/20 p-6 border-b border-pink-100 dark:border-pink-900/50">
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2" data-i18n="sect_bgrem_title">
+                        <i data-lucide="eraser" class="text-pink-600 dark:text-pink-400"></i> Borrar Fondo (IA)
+                    </h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_bgrem_desc">
+                        Sube imágenes y elimina el fondo automáticamente con alta calidad.
+                    </p>
+                </div>
+
+                <div class="p-6">
+                    <div id="bgrem-upload-area" 
+                        class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer mb-8"
+                        onclick="document.getElementById('file-input-bgrem').click()">
+                        <i data-lucide="upload" class="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-3"></i>
+                        <p class="font-medium text-slate-700 dark:text-slate-300" data-i18n="bgrem_upload_text">Haz clic para subir imágenes</p>
+                        <p class="text-xs text-slate-500 mt-1">Soporta JPG, PNG, WEBP, JPEG</p>
+                        <input type="file" id="file-input-bgrem" class="hidden" multiple accept="image/*">
+                    </div>
+
+                    <div id="bgrem-workspace" class="hidden">
+                        <div class="mb-6 flex justify-between items-center bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+                            <span id="bgrem-count" class="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                0 Imágenes cargadas
+                            </span>
+                            <button onclick="processAllBgRem()" id="btn-bgrem-all"
+                                class="bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                                <i data-lucide="eraser" class="w-4 h-4"></i>
+                                Procesar Todo
+                            </button>
+                        </div>
+
+                        <div id="bgrem-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+                    </div>
+                </div>
             </div>
         </section>
 

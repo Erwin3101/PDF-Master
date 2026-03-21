@@ -39,12 +39,15 @@
                 nav_split: "Dividir",
                 nav_merge: "Unir",
                 nav_pdf2img: "PDF a Img",
+                nav_bgrem: "Borrar Fondo",
                 nav_all: "Todas",
 
                 hero_title: "Suite de Herramientas <span class='text-blue-600 dark:text-blue-400'>PDF</span>",
                 hero_desc: "Todas las herramientas que necesitas en un solo lugar. 100% Privado y seguro en tu navegador.",
 
                 // Cards
+                card_bgrem_title: "Borrar Fondo (IA)",
+                card_bgrem_desc: "Elimina el fondo de tus imágenes con IA de forma precisa.",
                 card_img2pdf_title: "Img a PDF",
                 card_img2pdf_desc: "Convierte fotos a PDF.",
                 card_compress_title: "Comprimir PDF",
@@ -78,6 +81,9 @@
 
                 sect_img2pdf_title: "Imagen a PDF",
                 sect_img2pdf_desc: "Convierte tus imágenes con opciones de personalización profesionales.",
+
+                sect_bgrem_title: "Eliminador de Fondo (IA)",
+                sect_bgrem_desc: "Sube imágenes (.jpg, .png, .webp) y elimina el fondo automáticamente con alta calidad.",
 
                 sect_nup_title: "Resumir PDF",
                 sect_nup_desc: "Junta varias páginas en una sola para ahorrar impresión.",
@@ -116,9 +122,12 @@
                 drop_organize: "Organizar",
                 drop_convert: "Convertir",
                 drop_edit: "Editar",
+                drop_edit: "Editar",
                 drop_others: "Otros",
+                drop_ai: "IA & Edición",
 
                 // Dropdown Tools
+                drop_bgrem: "Borrar Fondo",
                 drop_merge: "Unir PDF",
                 drop_compress: "Comprimir",
                 drop_split: "Dividir PDF",
@@ -133,6 +142,8 @@
                 drop_poster: "Póster",
                 drop_collage: "Collage",
 
+                bgrem_upload_text: "Haz clic para subir imágenes",
+
                 // Footer
                 footer_rights: "Todos los derechos reservados.",
                 footer_author: "Autor:"
@@ -145,11 +156,14 @@
                 nav_split: "Split",
                 nav_merge: "Merge",
                 nav_pdf2img: "PDF to Img",
+                nav_bgrem: "Remove Background",
                 nav_all: "All Tools",
 
                 hero_title: "PDF <span class='text-blue-600 dark:text-blue-400'>Master</span> Suite",
                 hero_desc: "All the tools you need in one place. 100% Private and secure in your browser.",
 
+                card_bgrem_title: "Remove Background (AI)",
+                card_bgrem_desc: "Remove the background from your images accurately with AI.",
                 card_img2pdf_title: "Img to PDF",
                 card_img2pdf_desc: "Convert photos to PDF.",
                 card_compress_title: "Compress PDF",
@@ -182,6 +196,9 @@
 
                 sect_img2pdf_title: "Image to PDF",
                 sect_img2pdf_desc: "Convert your images with professional options.",
+
+                sect_bgrem_title: "Background Remover (AI)",
+                sect_bgrem_desc: "Upload images (.jpg, .png, .webp) and remove the background automatically with high quality.",
 
                 sect_nup_title: "N-Up (Summarize)",
                 sect_nup_desc: "Put multiple pages on one sheet to save paper.",
@@ -219,8 +236,11 @@
                 drop_organize: "Organize",
                 drop_convert: "Convert",
                 drop_edit: "Edit",
+                drop_edit: "Edit",
                 drop_others: "Others",
+                drop_ai: "AI & Editing",
 
+                drop_bgrem: "Remove Background",
                 drop_merge: "Merge PDF",
                 drop_compress: "Compress",
                 drop_split: "Split PDF",
@@ -234,6 +254,8 @@
                 drop_sign: "Sign PDF",
                 drop_poster: "Poster",
                 drop_collage: "Collage",
+
+                bgrem_upload_text: "Click to upload images",
 
                 footer_rights: "All rights reserved.",
                 footer_author: "Author:"
@@ -327,7 +349,7 @@
                 navBtn.classList.add('active');
                 navBtn.classList.remove('inactive');
             }
-            ['home', 'img2pdf', 'split', 'merge', 'poster', 'collage', 'pdf2img', 'nup', 'watermark', 'pagenumbers', 'sign', 'compress', 'ocr', 'scan-enhancer'].forEach(s => {
+            ['home', 'img2pdf', 'split', 'merge', 'poster', 'collage', 'pdf2img', 'nup', 'watermark', 'pagenumbers', 'sign', 'compress', 'ocr', 'scan-enhancer', 'bgrem'].forEach(s => {
                 const sec = document.getElementById(`section-${s}`);
                 if (sec) sec.classList.add('hidden');
             });
@@ -2039,5 +2061,148 @@
 
         // 12. SCAN - Print (uses canvas)
         function printScan() { try { printCanvasImage('scan-canvas'); } finally { hideLoader(); } }
+
+
+        // ==========================================
+        // 0. REMOVER FONDO (IA) - LOGIC
+        // ==========================================
+        let bgRemImages = [];
+        let isBgRemProcessing = false;
+
+        document.getElementById('file-input-bgrem').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                const newImages = Array.from(files).map(file => ({
+                    id: Math.random().toString(36).substr(2, 9),
+                    originalBlob: file,
+                    originalUrl: URL.createObjectURL(file),
+                    processedUrl: null,
+                    status: 'pending',
+                    name: file.name
+                }));
+                bgRemImages = [...bgRemImages, ...newImages];
+                renderBgRemGrid();
+                document.getElementById('bgrem-workspace').classList.remove('hidden');
+            }
+            e.target.value = '';
+        });
+
+        async function renderBgRemGrid() {
+            const grid = document.getElementById('bgrem-grid');
+            grid.innerHTML = '';
+            document.getElementById('bgrem-count').innerText = `${bgRemImages.length} Imágenes cargadas`;
+
+            bgRemImages.forEach((img, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col";
+                
+                let contentHtml = `
+                    <div class="p-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                        <span class="text-xs font-medium truncate max-w-[200px] text-slate-600 dark:text-slate-400">${img.name}</span>
+                        <button onclick="removeBgRemImage('${img.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>
+                    <div class="flex-1 flex flex-col md:flex-row h-[300px]">
+                        <div class="flex-1 relative border-r border-slate-100 dark:border-slate-700 bg-checkerboard">
+                            <div class="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-sm z-10">Original</div>
+                            <img src="${img.originalUrl}" class="w-full h-full object-contain">
+                        </div>
+                        <div class="flex-1 relative bg-checkerboard flex items-center justify-center">
+                            <div class="absolute top-2 left-2 bg-pink-600/80 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-sm z-10">Sin Fondo</div>
+                `;
+
+                if (img.status === 'completed' && img.processedUrl) {
+                    contentHtml += `<img src="${img.processedUrl}" class="w-full h-full object-contain">`;
+                } else if (img.status === 'processing') {
+                    contentHtml += `
+                        <div class="text-center">
+                            <i data-lucide="loader-2" class="w-8 h-8 text-pink-500 animate-spin mx-auto mb-2"></i>
+                            <span class="text-xs text-slate-500 font-medium">Procesando IA...</span>
+                        </div>
+                    `;
+                } else if (img.status === 'error') {
+                    contentHtml += `<span class="text-red-500 text-sm">Error al procesar</span>`;
+                } else {
+                    contentHtml += `<span class="text-slate-400 text-sm italic">Pendiente</span>`;
+                }
+
+                contentHtml += `
+                        </div>
+                    </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-2">
+                `;
+
+                if (img.status === 'pending') {
+                    contentHtml += `
+                        <button onclick="processBgRemImage('${img.id}')" class="text-xs bg-slate-800 dark:bg-slate-700 text-white px-3 py-1.5 rounded hover:bg-slate-700 transition-colors flex items-center gap-1">
+                            <i data-lucide="refresh-cw" class="w-3 h-3"></i> Procesar
+                        </button>
+                    `;
+                } else if (img.status === 'completed') {
+                    contentHtml += `
+                        <button onclick="downloadBgRemImage('${img.processedUrl}', '${img.name}')" class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-sm">
+                            <i data-lucide="download" class="w-3 h-3"></i> Descargar PNG
+                        </button>
+                    `;
+                }
+
+                contentHtml += `</div>`;
+                card.innerHTML = contentHtml;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        window.removeBgRemImage = (id) => {
+            bgRemImages = bgRemImages.filter(img => img.id !== id);
+            renderBgRemGrid();
+            if (bgRemImages.length === 0) document.getElementById('bgrem-workspace').classList.add('hidden');
+        };
+
+        window.downloadBgRemImage = (url, name) => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sin-fondo-${name.replace(/\.[^/.]+$/, "")}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+
+        window.processBgRemImage = async (id) => {
+            const imgIdx = bgRemImages.findIndex(img => img.id === id);
+            if (imgIdx === -1) return;
+
+            bgRemImages[imgIdx].status = 'processing';
+            renderBgRemGrid();
+
+            try {
+                // Importar dinámicamente la librería para evitar problemas si no carga
+                const { removeBackground } = await import('@imgly/background-removal');
+                
+                // Configuración con publicPath para que encuentre los archivos WASM en el CDN
+                const blob = await removeBackground(bgRemImages[imgIdx].originalBlob, {
+                    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/'
+                });
+                
+                bgRemImages[imgIdx].processedUrl = URL.createObjectURL(blob);
+                bgRemImages[imgIdx].status = 'completed';
+            } catch (err) {
+                console.error(err);
+                if (!window.crossOriginIsolated) {
+                   alert("Aviso: El procesamiento de IA requiere Aislamiento de Origen Cruzado. Si estás abriendo el archivo directamente (file://), NO funcionará. Por favor, usa un servidor local (localhost) o despliega a GitHub Pages.");
+                } else {
+                   alert("Error en el procesamiento: " + err.message);
+                }
+                bgRemImages[imgIdx].status = 'error';
+            }
+            renderBgRemGrid();
+        };
+
+        window.processAllBgRem = async () => {
+             const pending = bgRemImages.filter(i => i.status === 'pending');
+             for (const img of pending) {
+                 await processBgRemImage(img.id);
+             }
+        };
+
 
 
