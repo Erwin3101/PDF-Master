@@ -2177,20 +2177,22 @@
             try {
                 // Importar dinámicamente la librería para evitar problemas si no carga
                 const { removeBackground } = await import('@imgly/background-removal');
+                console.log("IA: Librería cargada con éxito");
                 
-                // Configuración con publicPath para que encuentre los archivos WASM en el CDN
+                // Configuración con publicPath al paquete de DATOS (WASM)
                 const blob = await removeBackground(bgRemImages[imgIdx].originalBlob, {
-                    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/'
+                    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.7.0/dist/'
                 });
+                console.log("IA: Procesamiento completado");
                 
                 bgRemImages[imgIdx].processedUrl = URL.createObjectURL(blob);
                 bgRemImages[imgIdx].status = 'completed';
             } catch (err) {
-                console.error(err);
+                console.error("IA ERROR:", err);
                 if (!window.crossOriginIsolated) {
-                   alert("Aviso: El procesamiento de IA requiere Aislamiento de Origen Cruzado. Si estás abriendo el archivo directamente (file://), NO funcionará. Por favor, usa un servidor local (localhost) o despliega a GitHub Pages.");
+                   alert("Aviso: El procesamiento de IA requiere Aislamiento de Origen Cruzado. \n\nSI ESTÁS EN GITHUB PAGES: Intenta hacer una 'Recarga Forzada' (Ctrl + F5) para que el Service Worker se active. \n\nSi estás en local, recuerda usar un servidor (localhost).");
                 } else {
-                   alert("Error en el procesamiento: " + err.message);
+                   alert("Error en el procesamiento: " + err.message + "\n\nConsulta la consola (F12) para más detalles.");
                 }
                 bgRemImages[imgIdx].status = 'error';
             }
