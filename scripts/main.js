@@ -1708,7 +1708,7 @@
             signCoords = { x, y };
         }
 
-        async function downloadSignedPDF() {
+        async function downloadSignedPDF(forPrint = false) {
             if (!signImgData || !signPdfBytes) return;
             showLoader("Firmando...");
             try {
