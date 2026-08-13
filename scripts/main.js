@@ -329,12 +329,15 @@
                 navBtn.classList.add('active');
                 navBtn.classList.remove('inactive');
             }
-            ['home', 'img2pdf', 'split', 'merge', 'poster', 'collage', 'pdf2img', 'nup', 'watermark', 'pagenumbers', 'sign', 'compress', 'ocr', 'scan-enhancer', 'cedula'].forEach(s => {
-                const sec = document.getElementById(`section-${s}`);
-                if (sec) sec.classList.add('hidden');
+            // Ocultar de manera garantizada y dinámica TODAS las secciones
+            document.querySelectorAll('main > section, [id^="section-"]').forEach(sec => {
+                sec.classList.add('hidden');
             });
             const activeSec = document.getElementById(`section-${tool}`);
-            if (activeSec) activeSec.classList.remove('hidden');
+            if (activeSec) {
+                activeSec.classList.remove('hidden');
+            }
+            window.scrollTo({ top: 0, behavior: 'instant' });
             lucide.createIcons();
         }
 
