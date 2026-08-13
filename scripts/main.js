@@ -71,6 +71,8 @@
                 card_pagenum_desc: "Añade numeración auto.",
                 card_sign_title: "Firmar PDF",
                 card_sign_desc: "Dibuja y coloca tu firma.",
+                card_cedula_title: "Escáner Cédula",
+                card_cedula_desc: "Anverso y reverso con proporción exacta.",
 
                 // Sections Headers
                 sect_compress_title: "Comprimir PDF",
@@ -112,6 +114,9 @@
                 sect_sign_title: "Firmar PDF",
                 sect_sign_desc: "Dibuja tu firma, escribe texto o sube una imagen y colócala en el PDF.",
 
+                sect_cedula_title: "Escáner Formato Cédula",
+                sect_cedula_desc: "Escanea anverso y reverso con proporción exacta, filtros inteligentes y descarga/impresión directa.",
+
                 // Dropdown
                 drop_organize: "Organizar",
                 drop_convert: "Convertir",
@@ -132,6 +137,10 @@
                 drop_sign: "Firmar PDF",
                 drop_poster: "Póster",
                 drop_collage: "Collage",
+                drop_cedula: "Escáner Cédula",
+                cedula_paper_format: "Tamaño de Hoja",
+                cedula_card_size: "Tamaño de Cédula",
+                cedula_preview_title: "Vista Previa de Impresión",
 
                 // Footer
                 footer_rights: "Todos los derechos reservados.",
@@ -176,6 +185,8 @@
                 card_pagenum_desc: "Add auto numbering.",
                 card_sign_title: "Sign PDF",
                 card_sign_desc: "Draw and place signature.",
+                card_cedula_title: "ID Card Scanner",
+                card_cedula_desc: "Front and back with exact ratio.",
 
                 sect_compress_title: "Compress PDF",
                 sect_compress_desc: "Reduce your PDF file size.",
@@ -216,6 +227,9 @@
                 sect_sign_title: "Sign PDF",
                 sect_sign_desc: "Draw your signature, type text or upload an image and place it on the PDF.",
 
+                sect_cedula_title: "ID Card Scanner to PDF",
+                sect_cedula_desc: "Scan front and back with exact ratio, smart filters and direct print/download.",
+
                 drop_organize: "Organize",
                 drop_convert: "Convert",
                 drop_edit: "Edit",
@@ -234,6 +248,10 @@
                 drop_sign: "Sign PDF",
                 drop_poster: "Poster",
                 drop_collage: "Collage",
+                drop_cedula: "ID Card Scanner",
+                cedula_paper_format: "Paper Size",
+                cedula_card_size: "Card Size",
+                cedula_preview_title: "Print Preview",
 
                 footer_rights: "All rights reserved.",
                 footer_author: "Author:"
@@ -261,25 +279,11 @@
                     } else if (key === 'hero_title') {
                         el.innerHTML = t[key]; // Special case for HTML content
                     } else if (el.childNodes.length > 0) {
-                        // Try to preserve icons if they are creating children. 
-                        // Strategy: Update text node only if mixed content? 
-                        // For simplicity in this project's structure, standard replacement is mostly fine
-                        // BUT for buttons with icons, we need to be careful.
-                        // Let's check if there is a direct text node to replace or innerHTML.
-
-                        // Simple approach: if element has specific structure constraint, handle manually
-                        // Else, just innerHTML or textContent.
-
-                        // For tool buttons (icon + text), we'll wrap text in span or just rebuild.
-                        // Let's look at nav buttons: <i data-lucide...></i> Text
-                        // We should wrap the text in a span or just replace the last child if it's text.
-
                         let icon = el.querySelector('i') || el.querySelector('svg');
                         if (icon) {
-                            // Preserve icon
                             const iconHtml = icon.outerHTML;
                             el.innerHTML = iconHtml + ' ' + t[key];
-                            lucide.createIcons(); // Re-init icons just in case
+                            lucide.createIcons();
                         } else {
                             el.innerHTML = t[key];
                         }
@@ -292,8 +296,6 @@
 
         // Init Load
         applyLanguage();
-
-
 
         function toggleDarkMode() {
             const html = document.documentElement;
@@ -327,12 +329,13 @@
                 navBtn.classList.add('active');
                 navBtn.classList.remove('inactive');
             }
-            ['home', 'img2pdf', 'split', 'merge', 'poster', 'collage', 'pdf2img', 'nup', 'watermark', 'pagenumbers', 'sign', 'compress', 'ocr', 'scan-enhancer'].forEach(s => {
+            ['home', 'img2pdf', 'split', 'merge', 'poster', 'collage', 'pdf2img', 'nup', 'watermark', 'pagenumbers', 'sign', 'compress', 'ocr', 'scan-enhancer', 'cedula'].forEach(s => {
                 const sec = document.getElementById(`section-${s}`);
                 if (sec) sec.classList.add('hidden');
             });
             const activeSec = document.getElementById(`section-${tool}`);
             if (activeSec) activeSec.classList.remove('hidden');
+            lucide.createIcons();
         }
 
         const showLoader = (msg) => { document.getElementById('status-text').innerText = msg; document.getElementById('status-modal').classList.remove('hidden'); };
@@ -1286,17 +1289,26 @@
                     if (ext === 'pdf') {
                         const ab = await f.arrayBuffer();
                         const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-                        const p = await pdf.getPage(1);
-                        const vp = p.getViewport({ scale: 5 }); // HIGH QUALITY (360 DPI approx)
-                        const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
-                        await p.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-                        u = c.toDataURL('image/jpeg', 0.95);
+                        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                            const p = await pdf.getPage(pageNum);
+                            const vp = p.getViewport({ scale: 3.5 }); // High Quality
+                            const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+                            await p.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+                            const u = c.toDataURL('image/jpeg', 0.95);
+                            const imgObj = await loadImage(u);
+                            posterImages.push(imgObj);
+                        }
                     }
-                    else if (ext === 'heic' || ext === 'heif') { u = await blobToDataURL(await heic2any({ blob: f, toType: "image/jpeg" })); }
-                    else { u = await blobToDataURL(f); }
-
-                    const imgObj = await loadImage(u);
-                    posterImages.push(imgObj);
+                    else if (ext === 'heic' || ext === 'heif') {
+                        u = await blobToDataURL(await heic2any({ blob: f, toType: "image/jpeg" }));
+                        const imgObj = await loadImage(u);
+                        posterImages.push(imgObj);
+                    }
+                    else {
+                        u = await blobToDataURL(f);
+                        const imgObj = await loadImage(u);
+                        posterImages.push(imgObj);
+                    }
                 }
 
                 document.getElementById('poster-upload-area').classList.add('hidden');
@@ -2039,5 +2051,1230 @@
 
         // 12. SCAN - Print (uses canvas)
         function printScan() { try { printCanvasImage('scan-canvas'); } finally { hideLoader(); } }
+
+        // ==========================================
+        // 15. ESCÁNER FORMATO CÉDULA A PDF
+        // ==========================================
+
+        const CEDULA_CONFIG = {
+            PAGE_FORMATS: {
+                a4: { name: 'A4', width: 210, height: 297 },
+                letter: { name: 'Carta / Letter', width: 215.9, height: 279.4 }
+            },
+            CARD_SIZES: {
+                standard: { name: 'Estándar Real (85.6 mm)', width: 85.6 },
+                large: { name: 'Grande / Legible (105 mm)', width: 105 },
+                max: { name: 'Máximo Ajuste (120 mm)', width: 120 }
+            },
+            DEFAULTS: {
+                format: 'letter',
+                cardSize: 'standard',
+                spacing: 20,
+                topMargin: 30,
+                defaultFilter: 'document'
+            },
+            SCAN_FILTERS: {
+                ORIGINAL: 'original',
+                DOCUMENT: 'document',
+                GRAYSCALE: 'grayscale',
+                BW: 'bw'
+            }
+        };
+
+        class CedulaScannerEngine {
+            static async processImage(sourceImage, options = {}) {
+                const filter = options.filter || CEDULA_CONFIG.SCAN_FILTERS.DOCUMENT;
+                const brightness = options.brightness || 0;
+                const contrast = options.contrast || 0;
+                const rotation = (options.rotation || 0) % 360;
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                const srcWidth = sourceImage.naturalWidth || sourceImage.width;
+                const srcHeight = sourceImage.naturalHeight || sourceImage.height;
+
+                const isRotated90or270 = (rotation === 90 || rotation === 270);
+                canvas.width = isRotated90or270 ? srcHeight : srcWidth;
+                canvas.height = isRotated90or270 ? srcWidth : srcHeight;
+
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate((rotation * Math.PI) / 180);
+                ctx.drawImage(sourceImage, -srcWidth / 2, -srcHeight / 2);
+                ctx.restore();
+
+                if (filter === CEDULA_CONFIG.SCAN_FILTERS.ORIGINAL && brightness === 0 && contrast === 0) {
+                    return {
+                        dataUrl: canvas.toDataURL('image/jpeg', 0.96),
+                        width: canvas.width,
+                        height: canvas.height,
+                        format: 'JPEG'
+                    };
+                }
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+                const brightnessOffset = brightness * 1.5;
+
+                let minLuma = 255;
+                let maxLuma = 0;
+
+                if (filter === CEDULA_CONFIG.SCAN_FILTERS.DOCUMENT) {
+                    for (let i = 0; i < data.length; i += 16) {
+                        const luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        if (luma < minLuma) minLuma = luma;
+                        if (luma > maxLuma) maxLuma = luma;
+                    }
+                }
+
+                const whitePoint = Math.max(170, maxLuma - 15);
+                const blackPoint = Math.min(60, minLuma + 20);
+                const range = Math.max(1, whitePoint - blackPoint);
+
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i];
+                    let g = data[i + 1];
+                    let b = data[i + 2];
+                    let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                    switch (filter) {
+                        case CEDULA_CONFIG.SCAN_FILTERS.DOCUMENT: {
+                            if (luma >= whitePoint) {
+                                const lift = (luma - whitePoint) / (255 - whitePoint + 0.001);
+                                r = Math.min(255, r + (255 - r) * (0.85 + 0.15 * lift));
+                                g = Math.min(255, g + (255 - g) * (0.85 + 0.15 * lift));
+                                b = Math.min(255, b + (255 - b) * (0.85 + 0.15 * lift));
+                            } else if (luma <= blackPoint) {
+                                r = Math.max(0, r * 0.7);
+                                g = Math.max(0, g * 0.7);
+                                b = Math.max(0, b * 0.7);
+                            } else {
+                                const normalized = (luma - blackPoint) / range;
+                                const curve = normalized < 0.5 ? 2 * normalized * normalized : 1 - Math.pow(-2 * normalized + 2, 2) / 2;
+                                const factor = 0.8 + 0.4 * curve;
+                                r = Math.min(255, Math.max(0, r * factor));
+                                g = Math.min(255, Math.max(0, g * factor));
+                                b = Math.min(255, Math.max(0, b * factor));
+                            }
+                            break;
+                        }
+                        case CEDULA_CONFIG.SCAN_FILTERS.GRAYSCALE: {
+                            r = luma; g = luma; b = luma;
+                            break;
+                        }
+                        case CEDULA_CONFIG.SCAN_FILTERS.BW: {
+                            const val = luma > 135 ? 255 : 0;
+                            r = val; g = val; b = val;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+
+                    if (brightness !== 0) {
+                        r += brightnessOffset;
+                        g += brightnessOffset;
+                        b += brightnessOffset;
+                    }
+
+                    if (contrast !== 0) {
+                        r = contrastFactor * (r - 128) + 128;
+                        g = contrastFactor * (g - 128) + 128;
+                        b = contrastFactor * (b - 128) + 128;
+                    }
+
+                    data[i] = Math.min(255, Math.max(0, Math.round(r)));
+                    data[i + 1] = Math.min(255, Math.max(0, Math.round(g)));
+                    data[i + 2] = Math.min(255, Math.max(0, Math.round(b)));
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+
+                return {
+                    dataUrl: canvas.toDataURL('image/jpeg', 0.95),
+                    width: canvas.width,
+                    height: canvas.height,
+                    format: 'JPEG'
+                };
+            }
+
+            static loadImageElement(dataUrl) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = (err) => reject(err);
+                    img.src = dataUrl;
+                });
+            }
+        }
+
+        class CedulaCameraService {
+            constructor() {
+                this.modal = null;
+                this.video = null;
+                this.stream = null;
+                this.currentFacingMode = 'environment';
+                this.onCaptureCallback = null;
+                this.onCancelCallback = null;
+                this.targetSide = 'front';
+            }
+
+            init() {
+                this.modal = document.getElementById('camera-modal-cedula');
+                this.video = document.getElementById('camera-video-cedula');
+                const closeBtn = document.getElementById('camera-close-btn-cedula');
+                const cancelBtn = document.getElementById('camera-cancel-btn-cedula');
+                const shutterBtn = document.getElementById('camera-shutter-btn-cedula');
+                const switchBtn = document.getElementById('camera-switch-btn-cedula');
+
+                closeBtn?.addEventListener('click', () => this.stopAndClose());
+                cancelBtn?.addEventListener('click', () => this.stopAndClose());
+                shutterBtn?.addEventListener('click', () => this.captureSnapshot());
+                switchBtn?.addEventListener('click', () => this.toggleFacingMode());
+            }
+
+            async start(side = 'front', onCapture, onCancel) {
+                if (!this.modal) this.init();
+                this.targetSide = side;
+                this.onCaptureCallback = onCapture;
+                this.onCancelCallback = onCancel;
+
+                const targetLabel = document.getElementById('camera-target-label-cedula');
+                if (targetLabel) {
+                    targetLabel.textContent = side === 'front' 
+                        ? 'Fotografía el ANVERSO (Frente) de la cédula' 
+                        : 'Fotografía el REVERSO (Atrás) de la cédula';
+                }
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert("La cámara web no está disponible. Se abrirá el selector de archivos.");
+                    this.fallbackToNativeInput(side);
+                    return;
+                }
+
+                this.modal.classList.remove('hidden');
+                document.getElementById('camera-loading-cedula')?.classList.remove('hidden');
+
+                try {
+                    await this.startStream();
+                } catch (error) {
+                    console.warn('Error en cámara:', error);
+                    alert("No se pudo acceder a la cámara (" + error.message + "). Se abrirá el selector de archivos.");
+                    this.stopAndClose();
+                    this.fallbackToNativeInput(side);
+                }
+            }
+
+            async startStream() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(t => t.stop());
+                }
+
+                const constraints = {
+                    audio: false,
+                    video: {
+                        facingMode: { ideal: this.currentFacingMode },
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 1080, min: 720 }
+                    }
+                };
+
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                this.stream = stream;
+                this.video.srcObject = stream;
+
+                await new Promise((resolve) => {
+                    this.video.onloadedmetadata = () => {
+                        this.video.play();
+                        document.getElementById('camera-loading-cedula')?.classList.add('hidden');
+                        resolve();
+                    };
+                });
+            }
+
+            async toggleFacingMode() {
+                this.currentFacingMode = this.currentFacingMode === 'environment' ? 'user' : 'environment';
+                document.getElementById('camera-loading-cedula')?.classList.remove('hidden');
+                try {
+                    await this.startStream();
+                } catch (e) {
+                    console.error('Error al cambiar cámara:', e);
+                    document.getElementById('camera-loading-cedula')?.classList.add('hidden');
+                }
+            }
+
+            captureSnapshot() {
+                if (!this.video || !this.stream) return;
+                const vW = this.video.videoWidth || 1920;
+                const vH = this.video.videoHeight || 1080;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = vW;
+                canvas.height = vH;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(this.video, 0, 0, vW, vH);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
+
+                this.stopAndClose();
+                if (this.onCaptureCallback) {
+                    this.onCaptureCallback({ dataUrl, width: vW, height: vH, side: this.targetSide });
+                }
+            }
+
+            stopAndClose() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(t => t.stop());
+                    this.stream = null;
+                }
+                if (this.video) {
+                    this.video.srcObject = null;
+                }
+                if (this.modal) {
+                    this.modal.classList.add('hidden');
+                }
+                if (this.onCancelCallback) {
+                    this.onCancelCallback();
+                }
+            }
+
+            fallbackToNativeInput(side) {
+                const input = document.getElementById(`file-input-${side}-cedula`);
+                if (input) input.click();
+            }
+        }
+
+        class CedulaCropService {
+            constructor() {
+                this.modal = null;
+                this.canvas = null;
+                this.ctx = null;
+                this.sourceImage = null;
+                this.cropBox = { x: 0, y: 0, width: 0, height: 0 };
+                this.isDragging = false;
+                this.dragHandle = null;
+                this.dragStart = { x: 0, y: 0 };
+                this.initialCropBox = null;
+                this.onCompleteCallback = null;
+                this.onCancelCallback = null;
+                this.keepIdRatio = true;
+            }
+
+            init() {
+                this.modal = document.getElementById('crop-modal-cedula');
+                this.canvas = document.getElementById('crop-canvas-cedula');
+                this.ctx = this.canvas.getContext('2d');
+
+                const closeBtn = document.getElementById('crop-close-btn-cedula');
+                const cancelBtn = document.getElementById('crop-cancel-btn-cedula');
+                const applyBtn = document.getElementById('crop-apply-btn-cedula');
+                const presetIdBtn = document.getElementById('crop-btn-preset-id-cedula');
+                const presetFreeBtn = document.getElementById('crop-btn-preset-free-cedula');
+
+                closeBtn?.addEventListener('click', () => this.close(false));
+                cancelBtn?.addEventListener('click', () => this.close(false));
+                applyBtn?.addEventListener('click', () => this.applyCrop());
+
+                presetIdBtn?.addEventListener('click', () => {
+                    this.keepIdRatio = true;
+                    presetIdBtn.classList.add('active');
+                    presetFreeBtn?.classList.remove('active');
+                    this.adjustCropBoxToRatio();
+                    this.draw();
+                });
+
+                presetFreeBtn?.addEventListener('click', () => {
+                    this.keepIdRatio = false;
+                    presetFreeBtn.classList.add('active');
+                    presetIdBtn?.classList.remove('active');
+                });
+
+                const getCanvasCoords = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return {
+                        x: (clientX - rect.left) * (this.canvas.width / rect.width),
+                        y: (clientY - rect.top) * (this.canvas.height / rect.height)
+                    };
+                };
+
+                const handlePointerDown = (e) => {
+                    if (!this.sourceImage) return;
+                    const coords = getCanvasCoords(e);
+                    this.dragHandle = this.getHandleAt(coords.x, coords.y);
+                    if (this.dragHandle) {
+                        this.isDragging = true;
+                        this.dragStart = coords;
+                        this.initialCropBox = { ...this.cropBox };
+                        if (e.cancelable) e.preventDefault();
+                    }
+                };
+
+                const handlePointerMove = (e) => {
+                    if (!this.sourceImage) return;
+                    const coords = getCanvasCoords(e);
+                    if (!this.isDragging) {
+                        const handle = this.getHandleAt(coords.x, coords.y);
+                        this.canvas.style.cursor = this.getCursorForHandle(handle);
+                        return;
+                    }
+                    if (e.cancelable) e.preventDefault();
+                    const dx = coords.x - this.dragStart.x;
+                    const dy = coords.y - this.dragStart.y;
+                    this.updateCropBox(dx, dy);
+                    this.draw();
+                };
+
+                const handlePointerUp = () => {
+                    this.isDragging = false;
+                    this.dragHandle = null;
+                };
+
+                this.canvas.addEventListener('mousedown', handlePointerDown);
+                window.addEventListener('mousemove', handlePointerMove);
+                window.addEventListener('mouseup', handlePointerUp);
+
+                this.canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+                window.addEventListener('touchmove', handlePointerMove, { passive: false });
+                window.addEventListener('touchend', handlePointerUp);
+            }
+
+            open(imageElement, onComplete, onCancel) {
+                if (!this.modal) this.init();
+                this.sourceImage = imageElement;
+                this.onCompleteCallback = onComplete;
+                this.onCancelCallback = onCancel;
+
+                const maxWidth = 800;
+                const maxHeight = 500;
+                let w = imageElement.naturalWidth || imageElement.width;
+                let h = imageElement.naturalHeight || imageElement.height;
+                let scale = 1;
+                if (w > maxWidth || h > maxHeight) {
+                    scale = Math.min(maxWidth / w, maxHeight / h);
+                }
+
+                this.canvas.width = Math.round(w * scale);
+                this.canvas.height = Math.round(h * scale);
+
+                const initW = this.canvas.width * 0.85;
+                let initH = this.keepIdRatio ? initW / 1.586 : this.canvas.height * 0.85;
+                if (initH > this.canvas.height * 0.9) {
+                    initH = this.canvas.height * 0.9;
+                    if (this.keepIdRatio) initW = initH * 1.586;
+                }
+
+                this.cropBox = {
+                    x: (this.canvas.width - initW) / 2,
+                    y: (this.canvas.height - initH) / 2,
+                    width: initW,
+                    height: initH
+                };
+
+                this.modal.classList.remove('hidden');
+                this.draw();
+            }
+
+            adjustCropBoxToRatio() {
+                const ratio = 1.586;
+                let newHeight = this.cropBox.width / ratio;
+                if (this.cropBox.y + newHeight > this.canvas.height) {
+                    newHeight = this.canvas.height - this.cropBox.y;
+                    this.cropBox.width = newHeight * ratio;
+                }
+                this.cropBox.height = newHeight;
+            }
+
+            getHandleAt(x, y) {
+                const handleRadius = 24;
+                const { x: bx, y: by, width: bw, height: bh } = this.cropBox;
+                if (Math.hypot(x - bx, y - by) <= handleRadius) return 'tl';
+                if (Math.hypot(x - (bx + bw), y - by) <= handleRadius) return 'tr';
+                if (Math.hypot(x - bx, y - (by + bh)) <= handleRadius) return 'bl';
+                if (Math.hypot(x - (bx + bw), y - (by + bh)) <= handleRadius) return 'br';
+                if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return 'move';
+                return null;
+            }
+
+            getCursorForHandle(handle) {
+                switch (handle) {
+                    case 'tl': case 'br': return 'nwse-resize';
+                    case 'tr': case 'bl': return 'nesw-resize';
+                    case 'move': return 'move';
+                    default: return 'default';
+                }
+            }
+
+            updateCropBox(dx, dy) {
+                const b = { ...this.initialCropBox };
+                const idRatio = 1.586;
+
+                if (this.dragHandle === 'move') {
+                    let newX = b.x + dx;
+                    let newY = b.y + dy;
+                    newX = Math.max(0, Math.min(this.canvas.width - b.width, newX));
+                    newY = Math.max(0, Math.min(this.canvas.height - b.height, newY));
+                    this.cropBox.x = newX;
+                    this.cropBox.y = newY;
+                    return;
+                }
+
+                let { x, y, width, height } = b;
+                if (this.dragHandle === 'br') {
+                    width = Math.max(40, b.width + dx);
+                    height = this.keepIdRatio ? width / idRatio : Math.max(30, b.height + dy);
+                } else if (this.dragHandle === 'tr') {
+                    width = Math.max(40, b.width + dx);
+                    height = this.keepIdRatio ? width / idRatio : Math.max(30, b.height - dy);
+                    y = b.y + (b.height - height);
+                } else if (this.dragHandle === 'bl') {
+                    width = Math.max(40, b.width - dx);
+                    height = this.keepIdRatio ? width / idRatio : Math.max(30, b.height + dy);
+                    x = b.x + (b.width - width);
+                } else if (this.dragHandle === 'tl') {
+                    width = Math.max(40, b.width - dx);
+                    height = this.keepIdRatio ? width / idRatio : Math.max(30, b.height - dy);
+                    x = b.x + (b.width - width);
+                    y = b.y + (b.height - height);
+                }
+
+                if (x < 0) { width += x; x = 0; }
+                if (y < 0) { height += y; y = 0; }
+                if (x + width > this.canvas.width) width = this.canvas.width - x;
+                if (y + height > this.canvas.height) height = this.canvas.height - y;
+
+                this.cropBox = { x, y, width, height };
+            }
+
+            draw() {
+                if (!this.ctx || !this.sourceImage) return;
+                const { width, height } = this.canvas;
+                this.ctx.clearRect(0, 0, width, height);
+                this.ctx.drawImage(this.sourceImage, 0, 0, width, height);
+
+                // Overlay oscuro
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+                this.ctx.fillRect(0, 0, width, height);
+
+                // Recortar zona transparente
+                const { x, y, width: bw, height: bh } = this.cropBox;
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.rect(x, y, bw, bh);
+                this.ctx.clip();
+                this.ctx.drawImage(this.sourceImage, 0, 0, width, height);
+
+                // Guías tercios
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + bw / 3, y); this.ctx.lineTo(x + bw / 3, y + bh);
+                this.ctx.moveTo(x + (bw * 2) / 3, y); this.ctx.lineTo(x + (bw * 2) / 3, y + bh);
+                this.ctx.moveTo(x, y + bh / 3); this.ctx.lineTo(x + bw, y + bh / 3);
+                this.ctx.moveTo(x, y + (bh * 2) / 3); this.ctx.lineTo(x + bw, y + (bh * 2) / 3);
+                this.ctx.stroke();
+                this.ctx.restore();
+
+                // Borde y esquinas
+                this.ctx.strokeStyle = '#0284c7';
+                this.ctx.lineWidth = 2.5;
+                this.ctx.strokeRect(x, y, bw, bh);
+
+                const handleSize = 14;
+                this.ctx.fillStyle = '#38bdf8';
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 2;
+                [
+                    [x, y], [x + bw, y], [x, y + bh], [x + bw, y + bh]
+                ].forEach(([hx, hy]) => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(hx, hy, handleSize / 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.stroke();
+                });
+            }
+
+            applyCrop() {
+                const scaleX = (this.sourceImage.naturalWidth || this.sourceImage.width) / this.canvas.width;
+                const scaleY = (this.sourceImage.naturalHeight || this.sourceImage.height) / this.canvas.height;
+
+                const cropX = Math.round(this.cropBox.x * scaleX);
+                const cropY = Math.round(this.cropBox.y * scaleY);
+                const cropW = Math.round(this.cropBox.width * scaleX);
+                const cropH = Math.round(this.cropBox.height * scaleY);
+
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = cropW;
+                outCanvas.height = cropH;
+                const outCtx = outCanvas.getContext('2d');
+                outCtx.drawImage(this.sourceImage, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+                const dataUrl = outCanvas.toDataURL('image/jpeg', 0.98);
+                this.close(true);
+                if (this.onCompleteCallback) {
+                    this.onCompleteCallback({ dataUrl, width: cropW, height: cropH });
+                }
+            }
+
+            close(success = false) {
+                if (this.modal) this.modal.classList.add('hidden');
+                if (!success && this.onCancelCallback) this.onCancelCallback();
+            }
+        }
+
+        class CedulaImageHandler {
+            constructor() {
+                this.documents = [{ front: this.createSideState(), back: this.createSideState() }];
+                this.currentIndex = 0;
+                this.listeners = [];
+            }
+
+            get sides() { return this.documents[this.currentIndex]; }
+
+            createSideState() {
+                return {
+                    isLoaded: false,
+                    fileName: '',
+                    rawSource: null,
+                    rawCropped: null,
+                    processedDataUrl: null,
+                    width: 0,
+                    height: 0,
+                    format: 'JPEG',
+                    rotation: 0,
+                    filter: CEDULA_CONFIG.DEFAULTS.defaultFilter,
+                    brightness: 0,
+                    contrast: 0
+                };
+            }
+
+            onChange(cb) { this.listeners.push(cb); }
+            notify(side) { this.listeners.forEach(cb => cb(side, this.sides[side], this.sides)); }
+            notifyAll() { this.notify('front'); this.notify('back'); }
+
+            addDocument() {
+                this.documents.push({ front: this.createSideState(), back: this.createSideState() });
+                this.currentIndex = this.documents.length - 1;
+                this.notifyAll();
+            }
+
+            nextDocument() {
+                if (this.currentIndex < this.documents.length - 1) {
+                    this.currentIndex++;
+                    this.notifyAll();
+                }
+            }
+
+            prevDocument() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                    this.notifyAll();
+                }
+            }
+
+            deleteCurrentDocument() {
+                if (this.documents.length > 1) {
+                    this.documents.splice(this.currentIndex, 1);
+                    if (this.currentIndex >= this.documents.length) this.currentIndex = this.documents.length - 1;
+                } else {
+                    this.documents[0] = { front: this.createSideState(), back: this.createSideState() };
+                }
+                this.notifyAll();
+            }
+
+            async loadFile(file, side) {
+                let u = null, ext = file.name.split('.').pop().toLowerCase();
+                if (['heic', 'heif'].includes(ext)) {
+                    u = await blobToDataURL(await heic2any({ blob: file, toType: "image/jpeg" }));
+                } else {
+                    u = await blobToDataURL(file);
+                }
+                await this.loadDataUrl(u, side, file.name);
+            }
+
+            async loadDataUrl(dataUrl, side, fileName = 'imagen.jpg') {
+                const imgElement = await CedulaScannerEngine.loadImageElement(dataUrl);
+                const state = this.sides[side];
+                state.isLoaded = true;
+                state.fileName = fileName;
+                state.rawSource = imgElement;
+                state.rawCropped = imgElement;
+                state.rotation = 0;
+                state.brightness = 0;
+                state.contrast = 0;
+                await this.reprocess(side);
+            }
+
+            async applyCropResult(side, cropData) {
+                const state = this.sides[side];
+                const imgElement = await CedulaScannerEngine.loadImageElement(cropData.dataUrl);
+                state.rawCropped = imgElement;
+                await this.reprocess(side);
+            }
+
+            async rotate(side, deg = 90) {
+                const state = this.sides[side];
+                if (!state.isLoaded) return;
+                state.rotation = (state.rotation + deg) % 360;
+                await this.reprocess(side);
+            }
+
+            async setFilter(side, filterName) {
+                const state = this.sides[side];
+                if (!state.isLoaded) return;
+                state.filter = filterName;
+                await this.reprocess(side);
+            }
+
+            async setBrightness(side, value) {
+                const state = this.sides[side];
+                if (!state.isLoaded) return;
+                state.brightness = Math.max(-100, Math.min(100, Number(value) || 0));
+                await this.reprocess(side);
+            }
+
+            async setContrast(side, value) {
+                const state = this.sides[side];
+                if (!state.isLoaded) return;
+                state.contrast = Math.max(-100, Math.min(100, Number(value) || 0));
+                await this.reprocess(side);
+            }
+
+            async reprocess(side) {
+                const state = this.sides[side];
+                if (!state.isLoaded || !state.rawCropped) return;
+                const res = await CedulaScannerEngine.processImage(state.rawCropped, {
+                    filter: state.filter,
+                    brightness: state.brightness,
+                    contrast: state.contrast,
+                    rotation: state.rotation
+                });
+                state.processedDataUrl = res.dataUrl;
+                state.width = res.width;
+                state.height = res.height;
+                state.format = res.format;
+                this.notify(side);
+            }
+
+            resetSide(side) {
+                this.sides[side] = this.createSideState();
+                this.notify(side);
+            }
+
+            hasAnySide() { return this.documents.some(doc => doc.front.isLoaded || doc.back.isLoaded); }
+            hasBothSides() { return this.documents.some(doc => doc.front.isLoaded && doc.back.isLoaded); }
+            getSide(side) { return this.sides[side]; }
+        }
+
+        class CedulaPDFService {
+            static buildDocument(imageHandler, customSettings = {}) {
+                const { jsPDF } = window.jspdf;
+                if (!jsPDF) throw new Error('Librería jsPDF no encontrada.');
+
+                const formatKey = customSettings.format || CEDULA_CONFIG.DEFAULTS.format;
+                const cardSizeKey = customSettings.cardSize || CEDULA_CONFIG.DEFAULTS.cardSize;
+                const cardConfig = CEDULA_CONFIG.CARD_SIZES[cardSizeKey] || CEDULA_CONFIG.CARD_SIZES.standard;
+                const targetCardWidth = cardConfig.width;
+
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: formatKey === 'letter' ? 'letter' : 'a4',
+                    compress: true
+                });
+
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const textureBase64 = this.generateScannerTexture();
+                let pagesAdded = 0;
+
+                for (let i = 0; i < imageHandler.documents.length; i++) {
+                    const docState = imageHandler.documents[i];
+                    const front = docState.front;
+                    const back = docState.back;
+
+                    if (!front.isLoaded && !back.isLoaded) continue;
+
+                    if (pagesAdded > 0) doc.addPage();
+                    pagesAdded++;
+
+                    doc.addImage(textureBase64, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+
+                    const maxCardHeight = 90;
+                    let spacing = CEDULA_CONFIG.DEFAULTS.spacing;
+                    let topMargin = CEDULA_CONFIG.DEFAULTS.topMargin;
+
+                    let frontDim = null;
+                    if (front.isLoaded && front.processedDataUrl) {
+                        frontDim = this.calculateProportionalDimensions(front.width, front.height, targetCardWidth, maxCardHeight);
+                    }
+
+                    let backDim = null;
+                    if (back.isLoaded && back.processedDataUrl) {
+                        backDim = this.calculateProportionalDimensions(back.width, back.height, targetCardWidth, maxCardHeight);
+                    }
+
+                    if (frontDim && backDim) {
+                        const blockHeight = frontDim.height + spacing + backDim.height;
+                        if (blockHeight > pageHeight - 40) {
+                            topMargin = Math.max(15, (pageHeight - (frontDim.height + backDim.height + spacing)) / 2);
+                            spacing = Math.max(12, spacing * 0.7);
+                        } else {
+                            topMargin = (pageHeight - blockHeight) / 2;
+                        }
+                    } else if (frontDim && !backDim) {
+                        topMargin = (pageHeight - frontDim.height) / 2;
+                    } else if (!frontDim && backDim) {
+                        topMargin = (pageHeight - backDim.height) / 2;
+                    }
+
+                    if (frontDim) {
+                        const xFront = (pageWidth - frontDim.width) / 2;
+                        doc.addImage(front.processedDataUrl, front.format || 'JPEG', xFront, topMargin, frontDim.width, frontDim.height, undefined, 'FAST');
+                    }
+
+                    if (backDim) {
+                        const xBack = (pageWidth - backDim.width) / 2;
+                        const yBack = frontDim ? topMargin + frontDim.height + spacing : topMargin;
+                        doc.addImage(back.processedDataUrl, back.format || 'JPEG', xBack, yBack, backDim.width, backDim.height, undefined, 'FAST');
+                    }
+                }
+
+                if (pagesAdded === 0) throw new Error('Carga al menos una cara de la cédula.');
+                return doc;
+            }
+
+            static generateScannerTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 600; canvas.height = 800;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    const noise = Math.random() * 8;
+                    data[i] = Math.max(0, 255 - noise - (Math.random() * 2));
+                    data[i + 1] = Math.max(0, 255 - noise - (Math.random() * 2));
+                    data[i + 2] = Math.max(0, 255 - noise);
+                }
+                ctx.putImageData(imageData, 0, 0);
+                return canvas.toDataURL('image/jpeg', 0.6);
+            }
+
+            static calculateProportionalDimensions(naturalWidth, naturalHeight, targetWidthMm, maxHeightMm) {
+                if (!naturalWidth || !naturalHeight) {
+                    return { width: targetWidthMm, height: targetWidthMm * (53.98 / 85.6) };
+                }
+                const aspectRatio = naturalHeight / naturalWidth;
+                let width = targetWidthMm;
+                let height = width * aspectRatio;
+                if (height > maxHeightMm) {
+                    height = maxHeightMm;
+                    width = height / aspectRatio;
+                }
+                return { width: Math.round(width * 100) / 100, height: Math.round(height * 100) / 100 };
+            }
+
+            static async downloadPDF(imageHandler, settings = {}, fileName = 'Cedula_Escaneada_HD.pdf') {
+                const doc = this.buildDocument(imageHandler, settings);
+                doc.save(fileName);
+            }
+
+            static async generateBlob(imageHandler, settings = {}) {
+                const doc = this.buildDocument(imageHandler, settings);
+                return doc.output('blob');
+            }
+        }
+
+        class CedulaPrintService {
+            static async printDocument(imageHandler, settings = {}) {
+                const pdfBlob = await CedulaPDFService.generateBlob(imageHandler, settings);
+                printPdfBlob(pdfBlob);
+            }
+        }
+
+        class CedulaUIController {
+            constructor(imageHandler) {
+                this.imageHandler = imageHandler;
+                this.cameraService = new CedulaCameraService();
+                this.cropService = new CedulaCropService();
+                this.currentSettings = {
+                    format: CEDULA_CONFIG.DEFAULTS.format,
+                    cardSize: CEDULA_CONFIG.DEFAULTS.cardSize
+                };
+                this.dom = {};
+            }
+
+            init() {
+                this.cacheDom();
+                this.bindEvents();
+                this.subscribeToState();
+                this.updateBatchUI();
+                this.updatePaperPreview();
+            }
+
+            cacheDom() {
+                this.dom = {
+                    dropzoneFront: document.getElementById('dropzone-front-box-cedula'),
+                    dropzoneBack: document.getElementById('dropzone-back-box-cedula'),
+                    fileInputFront: document.getElementById('file-input-front-cedula'),
+                    fileInputBack: document.getElementById('file-input-back-cedula'),
+
+                    btnCameraFront: document.getElementById('btn-camera-front-cedula'),
+                    btnCameraBack: document.getElementById('btn-camera-back-cedula'),
+                    btnUploadFront: document.getElementById('btn-upload-front-cedula'),
+                    btnUploadBack: document.getElementById('btn-upload-back-cedula'),
+
+                    emptyStateFront: document.getElementById('empty-state-front-cedula'),
+                    emptyStateBack: document.getElementById('empty-state-back-cedula'),
+                    loadedStateFront: document.getElementById('loaded-state-front-cedula'),
+                    loadedStateBack: document.getElementById('loaded-state-back-cedula'),
+
+                    thumbImgFront: document.getElementById('thumb-img-front-cedula'),
+                    thumbImgBack: document.getElementById('thumb-img-back-cedula'),
+                    fileNameFront: document.getElementById('filename-front-cedula'),
+                    fileNameBack: document.getElementById('filename-back-cedula'),
+
+                    btnRotateFront: document.getElementById('btn-rotate-front-cedula'),
+                    btnRotateBack: document.getElementById('btn-rotate-back-cedula'),
+                    btnCropFront: document.getElementById('btn-crop-front-cedula'),
+                    btnCropBack: document.getElementById('btn-crop-back-cedula'),
+                    btnDeleteFront: document.getElementById('btn-delete-front-cedula'),
+                    btnDeleteBack: document.getElementById('btn-delete-back-cedula'),
+
+                    filterSelectFront: document.getElementById('filter-select-front-cedula'),
+                    filterSelectBack: document.getElementById('filter-select-back-cedula'),
+                    brightnessSliderFront: document.getElementById('brightness-front-cedula'),
+                    brightnessSliderBack: document.getElementById('brightness-back-cedula'),
+                    contrastSliderFront: document.getElementById('contrast-front-cedula'),
+                    contrastSliderBack: document.getElementById('contrast-back-cedula'),
+
+                    selectPaperFormat: document.getElementById('select-paper-format-cedula'),
+                    selectCardSize: document.getElementById('select-card-size-cedula'),
+
+                    paperSheet: document.getElementById('paper-sheet-cedula'),
+                    previewFrontContainer: document.getElementById('preview-front-container-cedula'),
+                    previewBackContainer: document.getElementById('preview-back-container-cedula'),
+                    previewImgFront: document.getElementById('preview-img-front-cedula'),
+                    previewImgBack: document.getElementById('preview-img-back-cedula'),
+                    placeholderFront: document.getElementById('placeholder-front-cedula'),
+                    placeholderBack: document.getElementById('placeholder-back-cedula'),
+                    watermarkText: document.getElementById('watermark-text-cedula'),
+
+                    btnDownload: document.getElementById('btn-download-pdf-cedula'),
+                    btnPrint: document.getElementById('btn-print-doc-cedula'),
+                    globalAlert: document.getElementById('global-alert-cedula'),
+
+                    btnPrevDoc: document.getElementById('btn-prev-doc-cedula'),
+                    btnNextDoc: document.getElementById('btn-next-doc-cedula'),
+                    btnAddDoc: document.getElementById('btn-add-doc-cedula'),
+                    btnDeleteDoc: document.getElementById('btn-delete-doc-cedula'),
+                    batchCounter: document.getElementById('batch-counter-cedula')
+                };
+            }
+
+            bindEvents() {
+                this.setupDropzone('front', this.dom.dropzoneFront, this.dom.fileInputFront);
+                this.setupDropzone('back', this.dom.dropzoneBack, this.dom.fileInputBack);
+
+                this.dom.btnCameraFront?.addEventListener('click', (e) => { e.stopPropagation(); this.handleCameraCapture('front'); });
+                this.dom.btnCameraBack?.addEventListener('click', (e) => { e.stopPropagation(); this.handleCameraCapture('back'); });
+
+                this.dom.btnUploadFront?.addEventListener('click', (e) => { e.stopPropagation(); this.dom.fileInputFront.click(); });
+                this.dom.btnUploadBack?.addEventListener('click', (e) => { e.stopPropagation(); this.dom.fileInputBack.click(); });
+
+                this.dom.btnRotateFront?.addEventListener('click', () => this.imageHandler.rotate('front', 90));
+                this.dom.btnRotateBack?.addEventListener('click', () => this.imageHandler.rotate('back', 90));
+
+                this.dom.btnCropFront?.addEventListener('click', () => this.openCropModal('front'));
+                this.dom.btnCropBack?.addEventListener('click', () => this.openCropModal('back'));
+
+                this.dom.btnDeleteFront?.addEventListener('click', () => this.imageHandler.resetSide('front'));
+                this.dom.btnDeleteBack?.addEventListener('click', () => this.imageHandler.resetSide('back'));
+
+                this.dom.btnPrevDoc?.addEventListener('click', () => { this.imageHandler.prevDocument(); this.updateBatchUI(); });
+                this.dom.btnNextDoc?.addEventListener('click', () => { this.imageHandler.nextDocument(); this.updateBatchUI(); });
+                this.dom.btnAddDoc?.addEventListener('click', () => { this.imageHandler.addDocument(); this.updateBatchUI(); });
+                this.dom.btnDeleteDoc?.addEventListener('click', () => {
+                    if (confirm("¿Eliminar este documento completo?")) {
+                        this.imageHandler.deleteCurrentDocument();
+                        this.updateBatchUI();
+                    }
+                });
+
+                this.dom.filterSelectFront?.addEventListener('change', (e) => this.imageHandler.setFilter('front', e.target.value));
+                this.dom.filterSelectBack?.addEventListener('change', (e) => this.imageHandler.setFilter('back', e.target.value));
+
+                this.dom.brightnessSliderFront?.addEventListener('input', (e) => this.imageHandler.setBrightness('front', e.target.value));
+                this.dom.brightnessSliderBack?.addEventListener('input', (e) => this.imageHandler.setBrightness('back', e.target.value));
+
+                this.dom.contrastSliderFront?.addEventListener('input', (e) => this.imageHandler.setContrast('front', e.target.value));
+                this.dom.contrastSliderBack?.addEventListener('input', (e) => this.imageHandler.setContrast('back', e.target.value));
+
+                this.dom.selectPaperFormat?.addEventListener('change', (e) => {
+                    this.currentSettings.format = e.target.value;
+                    this.updatePaperPreview();
+                });
+
+                this.dom.selectCardSize?.addEventListener('change', (e) => {
+                    this.currentSettings.cardSize = e.target.value;
+                    this.updatePaperPreview();
+                });
+
+                this.dom.btnDownload?.addEventListener('click', () => this.handleDownload());
+                this.dom.btnPrint?.addEventListener('click', () => this.handlePrint());
+            }
+
+            setupDropzone(side, dropzoneEl, inputEl) {
+                if (!dropzoneEl || !inputEl) return;
+                dropzoneEl.addEventListener('click', () => inputEl.click());
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropzoneEl.addEventListener(eventName, (e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        dropzoneEl.classList.add('border-sky-500', 'bg-sky-50/40');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropzoneEl.addEventListener(eventName, (e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        dropzoneEl.classList.remove('border-sky-500', 'bg-sky-50/40');
+                    }, false);
+                });
+
+                dropzoneEl.addEventListener('drop', async (e) => {
+                    const files = e.dataTransfer?.files;
+                    if (files && files.length > 0) await this.processSelectedFile(files[0], side);
+                });
+
+                inputEl.addEventListener('change', async (e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                        await this.processSelectedFile(files[0], side);
+                        inputEl.value = '';
+                    }
+                });
+            }
+
+            async processSelectedFile(file, side) {
+                this.hideAlert();
+                showLoader("Procesando imagen...");
+                try {
+                    await this.imageHandler.loadFile(file, side);
+                    this.showToast(`Imagen del ${side === 'front' ? 'anverso' : 'reverso'} cargada.`);
+                } catch (error) {
+                    this.showAlert(error.message || 'Error al procesar la imagen.');
+                } finally {
+                    hideLoader();
+                }
+            }
+
+            async handleCameraCapture(side) {
+                this.hideAlert();
+                try {
+                    await this.cameraService.start(side, async (captureResult) => {
+                        await this.imageHandler.loadDataUrl(
+                            captureResult.dataUrl,
+                            side,
+                            `foto_${side}_${Date.now()}.jpg`
+                        );
+                        this.openCropModal(side);
+                    }, () => {});
+                } catch (err) {
+                    this.showAlert('No se pudo acceder a la cámara.');
+                }
+            }
+
+            openCropModal(side) {
+                const sideData = this.imageHandler.getSide(side);
+                if (!sideData.isLoaded || !sideData.rawSource) return;
+                this.cropService.open(
+                    sideData.rawSource,
+                    async (cropResult) => {
+                        await this.imageHandler.applyCropResult(side, cropResult);
+                        this.showToast('Recorte aplicado.');
+                    },
+                    () => {}
+                );
+            }
+
+            subscribeToState() {
+                this.imageHandler.onChange((side, sideState) => {
+                    this.updateSideUI(side, sideState);
+                    this.updatePaperPreview();
+                });
+            }
+
+            updateBatchUI() {
+                if (!this.dom.batchCounter) return;
+                const total = this.imageHandler.documents.length;
+                const current = this.imageHandler.currentIndex + 1;
+                this.dom.batchCounter.textContent = `Doc ${current} / ${total}`;
+
+                if (this.dom.btnPrevDoc) this.dom.btnPrevDoc.disabled = current === 1;
+                if (this.dom.btnNextDoc) this.dom.btnNextDoc.disabled = current === total;
+                if (this.dom.btnDeleteDoc) {
+                    if (total > 1) this.dom.btnDeleteDoc.classList.remove('hidden');
+                    else this.dom.btnDeleteDoc.classList.add('hidden');
+                }
+
+                this.updateSideUI('front', this.imageHandler.sides.front);
+                this.updateSideUI('back', this.imageHandler.sides.back);
+                this.updatePaperPreview();
+            }
+
+            updateSideUI(side, state) {
+                const isFront = side === 'front';
+                const emptyState = isFront ? this.dom.emptyStateFront : this.dom.emptyStateBack;
+                const loadedState = isFront ? this.dom.loadedStateFront : this.dom.loadedStateBack;
+                const thumbImg = isFront ? this.dom.thumbImgFront : this.dom.thumbImgBack;
+                const fileName = isFront ? this.dom.fileNameFront : this.dom.fileNameBack;
+                const filterSelect = isFront ? this.dom.filterSelectFront : this.dom.filterSelectBack;
+                const brightnessSlider = isFront ? this.dom.brightnessSliderFront : this.dom.brightnessSliderBack;
+                const contrastSlider = isFront ? this.dom.contrastSliderFront : this.dom.contrastSliderBack;
+
+                if (state.isLoaded && state.processedDataUrl) {
+                    emptyState?.classList.add('hidden');
+                    loadedState?.classList.remove('hidden');
+                    if (thumbImg) thumbImg.src = state.processedDataUrl;
+                    if (fileName) fileName.textContent = state.fileName || `Imagen ${isFront ? 'Anverso' : 'Reverso'}`;
+                    if (filterSelect) filterSelect.value = state.filter;
+                    if (brightnessSlider) brightnessSlider.value = state.brightness;
+                    if (contrastSlider) contrastSlider.value = state.contrast;
+                } else {
+                    emptyState?.classList.remove('hidden');
+                    loadedState?.classList.add('hidden');
+                    if (thumbImg) thumbImg.src = '';
+                }
+            }
+
+            updatePaperPreview() {
+                const formatKey = this.currentSettings.format;
+                const formatConfig = CEDULA_CONFIG.PAGE_FORMATS[formatKey] || CEDULA_CONFIG.PAGE_FORMATS.letter;
+                if (this.dom.paperSheet) {
+                    this.dom.paperSheet.style.aspectRatio = `${formatConfig.width} / ${formatConfig.height}`;
+                }
+
+                const cardSizeKey = this.currentSettings.cardSize;
+                let cardWidthPercent = '72%';
+                if (cardSizeKey === 'large') cardWidthPercent = '82%';
+                if (cardSizeKey === 'max') cardWidthPercent = '92%';
+
+                if (this.dom.previewFrontContainer) this.dom.previewFrontContainer.style.width = cardWidthPercent;
+                if (this.dom.previewBackContainer) this.dom.previewBackContainer.style.width = cardWidthPercent;
+
+                const front = this.imageHandler.getSide('front');
+                const back = this.imageHandler.getSide('back');
+
+                if (front.isLoaded && front.processedDataUrl) {
+                    this.dom.previewImgFront.src = front.processedDataUrl;
+                    this.dom.previewImgFront.classList.remove('hidden');
+                    this.dom.placeholderFront?.classList.add('hidden');
+                } else {
+                    this.dom.previewImgFront.src = '';
+                    this.dom.previewImgFront.classList.add('hidden');
+                    this.dom.placeholderFront?.classList.remove('hidden');
+                }
+
+                if (back.isLoaded && back.processedDataUrl) {
+                    this.dom.previewImgBack.src = back.processedDataUrl;
+                    this.dom.previewImgBack.classList.remove('hidden');
+                    this.dom.placeholderBack?.classList.add('hidden');
+                } else {
+                    this.dom.previewImgBack.src = '';
+                    this.dom.previewImgBack.classList.add('hidden');
+                    this.dom.placeholderBack?.classList.remove('hidden');
+                }
+
+                if (front.isLoaded || back.isLoaded) {
+                    this.dom.watermarkText?.classList.add('hidden');
+                } else {
+                    this.dom.watermarkText?.classList.remove('hidden');
+                }
+            }
+
+            async handleDownload() {
+                if (!this.imageHandler.hasAnySide()) {
+                    this.showAlert('Por favor sube o toma foto de al menos una cara de la cédula.');
+                    return;
+                }
+                showLoader("Generando PDF en alta definición...");
+                try {
+                    await CedulaPDFService.downloadPDF(
+                        this.imageHandler,
+                        this.currentSettings,
+                        `Cedula_HD_${Date.now()}.pdf`
+                    );
+                    this.showToast('¡PDF descargado con éxito!');
+                } catch (err) {
+                    console.error(err);
+                    this.showAlert('Error al generar el PDF: ' + err.message);
+                } finally {
+                    hideLoader();
+                }
+            }
+
+            async handlePrint() {
+                if (!this.imageHandler.hasAnySide()) {
+                    this.showAlert('Por favor sube o toma foto de al menos una cara de la cédula.');
+                    return;
+                }
+                showLoader("Preparando impresión...");
+                try {
+                    await CedulaPrintService.printDocument(this.imageHandler, this.currentSettings);
+                } catch (err) {
+                    console.error(err);
+                    this.showAlert('Error al preparar impresión: ' + err.message);
+                } finally {
+                    hideLoader();
+                }
+            }
+
+            showAlert(msg) {
+                if (!this.dom.globalAlert) return;
+                this.dom.globalAlert.textContent = msg;
+                this.dom.globalAlert.classList.remove('hidden');
+            }
+
+            hideAlert() {
+                if (this.dom.globalAlert) this.dom.globalAlert.classList.add('hidden');
+            }
+
+            showToast(msg) {
+                let toast = document.getElementById('toast-notification-cedula');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'toast-notification-cedula';
+                    toast.className = 'toast-msg-cedula';
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = msg;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3500);
+            }
+        }
+
+        // Instanciar e inicializar controlador de Cédula al cargar
+        let cedulaImageHandler = null;
+        let cedulaUIController = null;
+        document.addEventListener('DOMContentLoaded', () => {
+            cedulaImageHandler = new CedulaImageHandler();
+            cedulaUIController = new CedulaUIController(cedulaImageHandler);
+            cedulaUIController.init();
+        });
+        // Si el DOM ya cargó previamente
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            if (!cedulaUIController) {
+                cedulaImageHandler = new CedulaImageHandler();
+                cedulaUIController = new CedulaUIController(cedulaImageHandler);
+                cedulaUIController.init();
+            }
+        }
+
 
 

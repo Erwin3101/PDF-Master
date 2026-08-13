@@ -100,17 +100,15 @@
                             data-i18n="nav_home">
                             <i data-lucide="home" class="w-4 h-4"></i> Inicio
                         </button>
-                        </button>
-
-                        <button onclick="switchTool('compress')" id="nav-compress"
-                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
-                            data-i18n="nav_compress">
-                            <i data-lucide="minimize-2" class="w-4 h-4"></i> Comprimir
-                        </button>
                         <button onclick="switchTool('img2pdf')" id="nav-img2pdf"
                             class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
                             data-i18n="nav_img2pdf">
                             <i data-lucide="image" class="w-4 h-4"></i> Img a PDF
+                        </button>
+                        <button onclick="switchTool('compress')" id="nav-compress"
+                            class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
+                            data-i18n="nav_compress">
+                            <i data-lucide="minimize-2" class="w-4 h-4"></i> Comprimir
                         </button>
                         <button onclick="switchTool('nup')" id="nav-nup"
                             class="tool-btn inactive px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap"
@@ -229,6 +227,12 @@
                             <div class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mt-2"
                                 data-i18n="drop_others">Otros
                             </div>
+                            <button onclick="switchTool('cedula')"
+                                class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
+                                <div class="p-1.5 bg-sky-100 dark:bg-sky-900/30 text-sky-600 rounded-md"><i
+                                        data-lucide="contact" class="w-4 h-4"></i></div> <span
+                                    data-i18n="drop_cedula">Escáner Cédula</span>
+                            </button>
                             <button onclick="switchTool('poster')"
                                 class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">
                                 <div class="p-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-600 rounded-md"><i
@@ -262,13 +266,10 @@
                     Todas las herramientas que necesitas en un solo lugar. 100% Privado y seguro en tu navegador.
                 </p>
 
-                <!-- GRID DE TARJETAS UNIFICADO (10 Herramientas: 5 columnas x 2 filas) -->
+                <!-- GRID DE TARJETAS UNIFICADO -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto mt-6">
 
-                    <!-- Editor PDF (NUEVO) -->
-
-
-                    <!-- 1. Img a PDF -->
+                    <!-- 1. Img a PDF (PRIMERO) -->
                     <button onclick="switchTool('img2pdf')"
                         class="home-card bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-800 text-left hover:border-blue-500 transition-all h-full group">
                         <div
@@ -280,6 +281,20 @@
                             Img a PDF</h3>
                         <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_img2pdf_desc">
                             Convierte fotos a PDF.</p>
+                    </button>
+
+                    <!-- Escáner Formato Cédula -->
+                    <button onclick="switchTool('cedula')"
+                        class="home-card bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-800 text-left hover:border-sky-500 transition-all h-full group">
+                        <div
+                            class="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 w-12 h-12 rounded-xl flex items-center justify-center mb-4">
+                            <i data-lucide="contact" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors"
+                            data-i18n="card_cedula_title">
+                            Escáner Cédula</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2" data-i18n="card_cedula_desc">
+                            Anverso y reverso con proporción exacta.</p>
                     </button>
 
                     <!-- Comprimir PDF (NUEVO) -->
@@ -1654,7 +1669,329 @@
             </div>
         </section>
 
+        <!-- 15. ESCÁNER FORMATO CÉDULA -->
+        <section id="section-cedula" class="hidden animate-fade-in">
+            <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                <div class="bg-sky-50/50 dark:bg-sky-900/20 p-6 border-b border-sky-100 dark:border-sky-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2" data-i18n="sect_cedula_title">
+                            <i data-lucide="contact" class="text-sky-600 dark:text-sky-400"></i> Escáner Formato Cédula
+                        </h2>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm" data-i18n="sect_cedula_desc">
+                            Escanea anverso y reverso con proporción exacta, filtros inteligentes y descarga/impresión directa.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        
+                        <!-- Columna Izquierda: Panel de Configuración y Escaneo (7 columnas) -->
+                        <div class="lg:col-span-7 space-y-6">
+                            
+                            <!-- Barra de Opciones de Impresión / Formato -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5" data-i18n="cedula_paper_format">Tamaño de Hoja</label>
+                                    <select id="select-paper-format-cedula" class="config-select w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                                        <option value="letter" selected>Carta / Letter (215.9 x 279.4 mm)</option>
+                                        <option value="a4">A4 (210 x 297 mm)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5" data-i18n="cedula_card_size">Tamaño de Cédula</label>
+                                    <select id="select-card-size-cedula" class="config-select w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                                        <option value="standard" selected>Estándar Real (85.6 mm)</option>
+                                        <option value="large">Grande / Legible (105 mm)</option>
+                                        <option value="max">Máximo Ajuste (120 mm)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Paginación / Modo Lote -->
+                            <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="btn-prev-doc-cedula" class="p-1.5 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all" disabled title="Documento anterior">
+                                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                    </button>
+                                    <span id="batch-counter-cedula" class="text-xs font-bold text-slate-700 dark:text-slate-300 px-2">Doc 1 / 1</span>
+                                    <button type="button" id="btn-next-doc-cedula" class="p-1.5 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all" disabled title="Siguiente documento">
+                                        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="btn-delete-doc-cedula" class="hidden text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-semibold px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center gap-1">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Eliminar Documento
+                                    </button>
+                                    <button type="button" id="btn-add-doc-cedula" class="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-400 font-semibold px-3 py-1.5 rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 transition-all flex items-center gap-1.5">
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Añadir Cédula
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 1. ANVERSO (FRENTE) -->
+                            <div class="bg-white dark:bg-slate-800/80 rounded-xl border-2 border-slate-200 dark:border-slate-700 p-4 transition-all" id="card-front-wrapper-cedula">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">
+                                        <span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span> 1. Anverso (Frente)
+                                    </span>
+                                </div>
+
+                                <!-- Estado Vacío / Dropzone -->
+                                <div id="empty-state-front-cedula">
+                                    <div id="dropzone-front-box-cedula" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-6 text-center hover:border-sky-500 dark:hover:border-sky-400 hover:bg-sky-50/20 dark:hover:bg-slate-800/60 transition-all cursor-pointer">
+                                        <i data-lucide="image" class="w-8 h-8 mx-auto text-slate-400 dark:text-slate-500 mb-2"></i>
+                                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Arrastra aquí la foto del frente</p>
+                                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-4">o usa una de las siguientes opciones:</p>
+                                        <div class="flex items-center justify-center gap-3">
+                                            <button type="button" id="btn-camera-front-cedula" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm shadow-sky-200 dark:shadow-none">
+                                                <i data-lucide="camera" class="w-3.5 h-3.5"></i> Tomar Foto
+                                            </button>
+                                            <button type="button" id="btn-upload-front-cedula" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 border border-slate-300 dark:border-slate-600">
+                                                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Subir Archivo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Estado Cargado -->
+                                <div id="loaded-state-front-cedula" class="hidden flex flex-col sm:flex-row gap-4 items-center">
+                                    <div class="w-32 h-20 bg-slate-100 dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
+                                        <img id="thumb-img-front-cedula" src="" alt="Miniatura Frente" class="max-w-full max-h-full object-contain">
+                                    </div>
+                                    <div class="flex-grow w-full space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <span id="filename-front-cedula" class="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">frente.jpg</span>
+                                            <button type="button" id="btn-delete-front-cedula" class="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Quitar
+                                            </button>
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" id="btn-rotate-front-cedula" class="px-2.5 py-1.5 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1">
+                                                <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Rotar 90°
+                                            </button>
+                                            <button type="button" id="btn-crop-front-cedula" class="px-2.5 py-1.5 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1">
+                                                <i data-lucide="crop" class="w-3.5 h-3.5"></i> Recortar
+                                            </button>
+                                            <select id="filter-select-front-cedula" class="config-select py-1 px-2 text-xs rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none">
+                                                <option value="document" selected>✨ Filtro Documento</option>
+                                                <option value="original">🖼️ Color Original</option>
+                                                <option value="bw">📄 Blanco y Negro</option>
+                                                <option value="grayscale">⬛ Escala de Grises</option>
+                                            </select>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3 pt-1">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="sun" class="w-3.5 h-3.5 text-slate-400"></i>
+                                                <input type="range" id="brightness-front-cedula" min="-50" max="50" value="0" class="w-full accent-sky-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer" title="Brillo">
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="contrast" class="w-3.5 h-3.5 text-slate-400"></i>
+                                                <input type="range" id="contrast-front-cedula" min="-50" max="50" value="0" class="w-full accent-sky-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer" title="Contraste">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input id="file-input-front-cedula" type="file" class="hidden" accept="image/png, image/jpeg, image/webp, .heic, .heif" />
+                            </div>
+
+                            <!-- 2. REVERSO (ATRÁS) -->
+                            <div class="bg-white dark:bg-slate-800/80 rounded-xl border-2 border-slate-200 dark:border-slate-700 p-4 transition-all" id="card-back-wrapper-cedula">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                                        <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span> 2. Reverso (Atrás)
+                                    </span>
+                                </div>
+
+                                <!-- Estado Vacío / Dropzone -->
+                                <div id="empty-state-back-cedula">
+                                    <div id="dropzone-back-box-cedula" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-6 text-center hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-indigo-50/20 dark:hover:bg-slate-800/60 transition-all cursor-pointer">
+                                        <i data-lucide="image" class="w-8 h-8 mx-auto text-slate-400 dark:text-slate-500 mb-2"></i>
+                                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Arrastra aquí la foto del reverso</p>
+                                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-4">o usa una de las siguientes opciones:</p>
+                                        <div class="flex items-center justify-center gap-3">
+                                            <button type="button" id="btn-camera-back-cedula" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm shadow-indigo-200 dark:shadow-none">
+                                                <i data-lucide="camera" class="w-3.5 h-3.5"></i> Tomar Foto
+                                            </button>
+                                            <button type="button" id="btn-upload-back-cedula" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 border border-slate-300 dark:border-slate-600">
+                                                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Subir Archivo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Estado Cargado -->
+                                <div id="loaded-state-back-cedula" class="hidden flex flex-col sm:flex-row gap-4 items-center">
+                                    <div class="w-32 h-20 bg-slate-100 dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
+                                        <img id="thumb-img-back-cedula" src="" alt="Miniatura Reverso" class="max-w-full max-h-full object-contain">
+                                    </div>
+                                    <div class="flex-grow w-full space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <span id="filename-back-cedula" class="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">reverso.jpg</span>
+                                            <button type="button" id="btn-delete-back-cedula" class="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1">
+                                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Quitar
+                                            </button>
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" id="btn-rotate-back-cedula" class="px-2.5 py-1.5 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1">
+                                                <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Rotar 90°
+                                            </button>
+                                            <button type="button" id="btn-crop-back-cedula" class="px-2.5 py-1.5 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1">
+                                                <i data-lucide="crop" class="w-3.5 h-3.5"></i> Recortar
+                                            </button>
+                                            <select id="filter-select-back-cedula" class="config-select py-1 px-2 text-xs rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none">
+                                                <option value="document" selected>✨ Filtro Documento</option>
+                                                <option value="original">🖼️ Color Original</option>
+                                                <option value="bw">📄 Blanco y Negro</option>
+                                                <option value="grayscale">⬛ Escala de Grises</option>
+                                            </select>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3 pt-1">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="sun" class="w-3.5 h-3.5 text-slate-400"></i>
+                                                <input type="range" id="brightness-back-cedula" min="-50" max="50" value="0" class="w-full accent-indigo-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer" title="Brillo">
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="contrast" class="w-3.5 h-3.5 text-slate-400"></i>
+                                                <input type="range" id="contrast-back-cedula" min="-50" max="50" value="0" class="w-full accent-indigo-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer" title="Contraste">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input id="file-input-back-cedula" type="file" class="hidden" accept="image/png, image/jpeg, image/webp, .heic, .heif" />
+                            </div>
+
+                            <!-- Botones de Acción -->
+                            <div class="flex gap-3 pt-2">
+                                <button type="button" id="btn-download-pdf-cedula" class="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-sky-200 dark:shadow-none transition-all flex items-center justify-center gap-2">
+                                    <i data-lucide="download" class="w-5 h-5"></i> Descargar PDF
+                                </button>
+                                <button type="button" id="btn-print-doc-cedula" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center gap-2">
+                                    <i data-lucide="printer" class="w-5 h-5"></i> Imprimir
+                                </button>
+                            </div>
+
+                            <div id="global-alert-cedula" class="hidden p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold"></div>
+                        </div>
+
+                        <!-- Columna Derecha: Vista Previa de la Hoja (5 columnas) -->
+                        <div class="lg:col-span-5 bg-slate-100 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center">
+                            <div class="flex items-center justify-between w-full mb-4 px-1">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300" data-i18n="cedula_preview_title">Vista Previa de Impresión</span>
+                                <span class="text-xs text-slate-400 dark:text-slate-400">Proporción 100% Exacta</span>
+                            </div>
+
+                            <!-- Hoja de Papel Interactiva -->
+                            <div id="paper-sheet-cedula" class="paper-sheet-cedula">
+                                <div id="watermark-text-cedula" class="paper-watermark-cedula">
+                                    VISTA PREVIA
+                                </div>
+
+                                <!-- Contenedor Anverso en Hoja -->
+                                <div id="preview-front-container-cedula" class="paper-card-container-cedula">
+                                    <span id="placeholder-front-cedula" class="paper-card-placeholder-cedula">
+                                        Espacio para Anverso (Frente)
+                                    </span>
+                                    <img id="preview-img-front-cedula" class="paper-card-img-cedula hidden" src="" alt="Vista previa anverso">
+                                </div>
+
+                                <!-- Contenedor Reverso en Hoja -->
+                                <div id="preview-back-container-cedula" class="paper-card-container-cedula">
+                                    <span id="placeholder-back-cedula" class="paper-card-placeholder-cedula">
+                                        Espacio para Reverso (Atrás)
+                                    </span>
+                                    <img id="preview-img-back-cedula" class="paper-card-img-cedula hidden" src="" alt="Vista previa reverso">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
+
+    <!-- Modal Cámara Cédula -->
+    <div id="camera-modal-cedula" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-[70] backdrop-blur-sm p-4">
+        <div class="bg-slate-900 rounded-2xl max-w-xl w-full overflow-hidden border border-slate-800 shadow-2xl flex flex-col">
+            <div class="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-sky-900/40 text-sky-400"><i data-lucide="camera" class="w-5 h-5"></i></span>
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Escáner de Cámara</h3>
+                        <p id="camera-target-label-cedula" class="text-xs text-slate-400">Enfoca el documento dentro del marco</p>
+                    </div>
+                </div>
+                <button type="button" id="camera-close-btn-cedula" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="relative bg-black flex items-center justify-center overflow-hidden min-h-[300px] max-h-[60vh]">
+                <video id="camera-video-cedula" playsinline autoplay muted class="w-full h-full object-cover"></video>
+                <div class="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
+                    <div class="w-full max-w-[360px] aspect-[1.586/1] border-2 border-dashed border-sky-400/90 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] flex flex-col items-center justify-between p-3">
+                        <span class="text-[10px] font-semibold text-sky-200 bg-sky-900/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                            Alinea la Cédula Aquí
+                        </span>
+                        <div class="flex justify-between w-full text-sky-300 text-xs"><span>┌</span><span>┐</span></div>
+                        <div class="flex justify-between w-full text-sky-300 text-xs"><span>└</span><span>┘</span></div>
+                    </div>
+                </div>
+                <div id="camera-loading-cedula" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white gap-3 z-20">
+                    <div class="loader"></div>
+                    <p class="text-xs font-medium">Iniciando cámara...</p>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-950 flex items-center justify-around">
+                <button type="button" id="camera-switch-btn-cedula" class="p-3 rounded-full bg-slate-800 text-slate-300 hover:text-white transition-all" title="Cambiar cámara">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="camera-shutter-btn-cedula" class="camera-shutter-cedula" aria-label="Tomar foto">
+                    <div class="shutter-inner"></div>
+                </button>
+                <button type="button" id="camera-cancel-btn-cedula" class="p-3 rounded-full bg-slate-800 text-slate-300 hover:text-white transition-all" title="Cancelar">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Recorte Cédula -->
+    <div id="crop-modal-cedula" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-[70] backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400"><i data-lucide="crop" class="w-5 h-5"></i></span>
+                    <div>
+                        <h3 class="font-bold text-slate-900 dark:text-white text-sm">Encuadrar y Recortar Cédula</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Ajusta los bordes para eliminar el fondo sobrante</p>
+                    </div>
+                </div>
+                <button type="button" id="crop-close-btn-cedula" class="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 flex flex-col items-center">
+                <div class="w-full flex items-center justify-center bg-slate-950 rounded-xl overflow-hidden select-none" style="min-height: 280px; max-height: 55vh;">
+                    <canvas id="crop-canvas-cedula" class="max-w-full max-h-[50vh] block cursor-crosshair"></canvas>
+                </div>
+                <div class="flex flex-wrap items-center justify-between w-full mt-3 gap-2 px-1 text-xs">
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="crop-btn-preset-id-cedula" class="btn-chip-cedula active">Proporción Cédula (1.6 : 1)</button>
+                        <button type="button" id="crop-btn-preset-free-cedula" class="btn-chip-cedula">Recorte Libre</button>
+                    </div>
+                    <span class="text-slate-400 text-[11px]">💡 Arrastra el centro o esquinas</span>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end gap-2">
+                <button type="button" id="crop-cancel-btn-cedula" class="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">Cancelar</button>
+                <button type="button" id="crop-apply-btn-cedula" class="px-5 py-2 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow transition-all flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i> Aplicar Recorte
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- FOOTER AGREGADO -->
     <footer
