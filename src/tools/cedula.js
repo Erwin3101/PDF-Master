@@ -65,6 +65,39 @@ function calculateProportionalDimensions(naturalWidth, naturalHeight, targetWidt
     };
 }
 
+/**
+ * Rotates an HTMLImageElement by `rotation` (degrees) onto a lossless PNG image
+ * so the crop modal displays the visually oriented photo before resetting `rotation = 0`.
+ * @param {HTMLImageElement} sourceImage
+ * @param {number} rotation
+ * @returns {Promise<HTMLImageElement>}
+ */
+async function rotateImageElementForCrop(sourceImage, rotation) {
+    const norm = ((Number(rotation) % 360) + 360) % 360;
+    if (norm === 0) return sourceImage;
+
+    const natW = sourceImage.naturalWidth || sourceImage.width;
+    const natH = sourceImage.naturalHeight || sourceImage.height;
+    const swapAxes = norm === 90 || norm === 270;
+    const canvas = document.createElement('canvas');
+    let dataUrl;
+    try {
+        canvas.width = swapAxes ? natH : natW;
+        canvas.height = swapAxes ? natW : natH;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((norm * Math.PI) / 180);
+        ctx.drawImage(sourceImage, -natW / 2, -natH / 2, natW, natH);
+        dataUrl = canvas.toDataURL('image/png');
+    } finally {
+        canvas.width = 0;
+        canvas.height = 0;
+    }
+    return loadImageElement(dataUrl);
+}
+
 class CedulaScannerEngine {
     static processImage(sourceImage, options = {}) {
         const filter = options.filter || CEDULA_CONFIG.SCAN_FILTERS.DOCUMENT;

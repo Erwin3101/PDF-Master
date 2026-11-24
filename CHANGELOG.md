@@ -1,5 +1,9 @@
 # Changelog
 
+## v6.0.1 — 2026-11-24
+
+- **Corrección en Escáner Formato Cédula (`src/tools/cedula.js`)**: restaurada la función `rotateImageElementForCrop` para pre-hornear la rotación activa al abrir el modal de recorte y evitar doble rotación tras aplicar cambios; flujo completo rotación + recorte + guarda `Ctrl+K` + exportación PDF verificado en vivo en navegador sin errores.
+
 ## v6.0.0 — 2026-11-24
 
 Modernización arquitectónica completa, corrección integral de bugs conocidos y ocultos, y rediseño Workspace 2026 100% del lado del cliente compatible con GitHub Pages sin paso de compilación (*Native ES Modules*).
