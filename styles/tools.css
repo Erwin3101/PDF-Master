@@ -1,0 +1,595 @@
+/* ==========================================================================
+   PDF Master Suite v6.0 — Tool-Specific Workspace Styles
+   ========================================================================== */
+
+/* ==========================================================================
+   Poster 2.0
+   ========================================================================== */
+
+.poster-stage {
+    background-color: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 360px;
+}
+
+.poster-preview-canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 520px;
+    height: auto;
+    border-radius: var(--radius-md);
+    background-color: #ffffff;
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-md);
+}
+
+.poster-presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.preset-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--transition-fast), color var(--transition-fast),
+        border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.preset-pill:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+}
+
+.preset-pill.is-active {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 2px 8px var(--accent-soft);
+}
+
+html.dark .preset-pill.is-active {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.poster-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+    gap: 10px;
+    width: 100%;
+}
+
+.poster-summary-grid > * {
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+}
+
+/* ==========================================================================
+   Img2PDF & Duplicate 2x1
+   ========================================================================== */
+
+.preview-stage-card {
+    background-color: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.preview-canvas-frame {
+    width: 100%;
+    min-height: 260px;
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.preview-canvas-frame canvas,
+.preview-canvas-frame img {
+    display: block;
+    max-width: 100%;
+    max-height: 500px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: var(--shadow-md);
+}
+
+.dup-presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==========================================================================
+   Collage
+   ========================================================================== */
+
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 10px;
+}
+
+.template-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--border-subtle);
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast),
+        color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.template-option:hover {
+    border-color: var(--tool-accent, #e11d48);
+    color: var(--text-primary);
+}
+
+.template-option.selected {
+    border-color: var(--tool-accent, #e11d48);
+    background-color: var(--tool-accent-soft, rgba(225, 29, 72, 0.12));
+    color: var(--tool-accent, #e11d48);
+    box-shadow: 0 0 0 2px var(--tool-accent-soft, rgba(225, 29, 72, 0.14));
+}
+
+.color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--border-strong);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast), border-color var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+}
+
+.color-swatch.is-active,
+.color-swatch.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+    transform: scale(1.06);
+}
+
+/* ==========================================================================
+   Sign PDF
+   ========================================================================== */
+
+.sig-pad-wrap {
+    position: relative;
+    border-radius: var(--radius-lg);
+    border: 1.5px dashed var(--border-strong);
+    background-color: #ffffff;
+    overflow: hidden;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.sig-pad-wrap:hover,
+.sig-pad-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+#sig-canvas {
+    touch-action: none;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 480 / 180;
+    display: block;
+    cursor: crosshair;
+}
+
+.sign-pdf-stage {
+    background-color: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    overflow: auto;
+}
+
+.sign-pdf-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    background-color: #ffffff;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    line-height: 0;
+    user-select: none;
+    touch-action: none;
+}
+
+.sign-pdf-container canvas,
+.sign-pdf-container > img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.sig-overlay-box {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px dashed var(--accent);
+    border-radius: 4px;
+    background-color: rgba(37, 99, 235, 0.06);
+    cursor: move;
+    touch-action: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.sig-overlay-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    display: block;
+}
+
+.sig-overlay-box.is-active {
+    border-style: solid;
+    border-color: var(--accent);
+    background-color: rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.sign-font-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--border-subtle);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+
+.sign-font-item:hover {
+    border-color: var(--border-strong);
+    background-color: var(--bg-hover);
+}
+
+.sign-font-item.is-selected {
+    border-color: var(--accent);
+    background-color: var(--accent-soft);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ==========================================================================
+   Scan Enhancer & OCR
+   ========================================================================== */
+
+.ocr-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
+.ocr-textarea {
+    width: 100%;
+    min-height: 280px;
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-strong);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.ocr-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.scan-preview-wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    align-items: start;
+    padding: 16px;
+    border-radius: var(--radius-xl);
+    background-color: var(--bg-surface-alt);
+    border: 1px solid var(--border-subtle);
+}
+
+.scan-preview-wrap canvas,
+.scan-preview-wrap img {
+    display: block;
+    width: 100%;
+    max-height: 460px;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    background-color: #ffffff;
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 899.98px) {
+    .ocr-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ==========================================================================
+   Escáner Cédula (ID Card Sheet, Camera & Crop Stage)
+   ========================================================================== */
+
+.paper-sheet-cedula {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    aspect-ratio: 215.9 / 279.4;
+    padding: 30px 20px;
+    border-radius: var(--radius-md);
+    background-color: #ffffff;
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    overflow: hidden;
+    transition: aspect-ratio var(--transition-base), box-shadow var(--transition-base);
+}
+
+html.dark .paper-sheet-cedula {
+    background-color: #f8fafc;
+    border-color: #475569;
+    box-shadow: var(--shadow-lg);
+}
+
+.paper-watermark-cedula {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: clamp(1.35rem, 4vw, 2rem);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(100, 116, 139, 0.24);
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
+
+.paper-card-container-cedula {
+    position: relative;
+    width: 72%;
+    aspect-ratio: 85.6 / 53.98;
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    background-color: rgba(241, 245, 249, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: width var(--transition-base), border-color var(--transition-fast);
+}
+
+.paper-card-placeholder-cedula {
+    padding: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+    user-select: none;
+}
+
+.paper-card-img-cedula {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.camera-modal-box {
+    width: 100%;
+    max-width: 680px;
+    max-height: 92dvh;
+    background-color: #090e17;
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInSlideUp 0.2s var(--ease-out) both;
+}
+
+.camera-guide-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(82%, 420px);
+    aspect-ratio: 85.6 / 53.98;
+    border: 2.5px solid #38bdf8;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.56);
+    pointer-events: none;
+}
+
+.camera-shutter-cedula {
+    width: 64px;
+    height: 64px;
+    padding: 4px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    border: 4px solid #3b82f6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.camera-shutter-cedula:hover {
+    transform: scale(1.06);
+}
+
+.camera-shutter-cedula:active {
+    transform: scale(0.92);
+}
+
+.camera-shutter-cedula .shutter-inner,
+.shutter-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: #ef4444;
+    display: block;
+}
+
+.crop-stage {
+    position: relative;
+    width: 100%;
+    min-height: 240px;
+    max-height: 62dvh;
+    border-radius: var(--radius-lg);
+    background-color: #090e17;
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    user-select: none;
+}
+
+.btn-chip-cedula {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-strong);
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast),
+        border-color var(--transition-fast);
+}
+
+.btn-chip-cedula:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.btn-chip-cedula.active {
+    background-color: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+}
+
+.cedula-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background-color: var(--info-soft);
+    border: 1px solid color-mix(in srgb, var(--info) 28%, transparent);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.cedula-alert svg {
+    width: 18px;
+    height: 18px;
+    color: var(--info);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+@media (max-width: 559.98px) {
+    .poster-stage,
+    .preview-stage-card,
+    .sign-pdf-stage {
+        padding: 14px;
+    }
+
+    .paper-sheet-cedula {
+        padding: 20px 14px;
+        gap: 12px;
+    }
+}
