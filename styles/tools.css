@@ -87,6 +87,45 @@ html.dark .preset-pill.is-active {
     border: 1px solid var(--border-subtle);
 }
 
+.poster-cut-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 16px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    font-size: 0.775rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.poster-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.poster-legend-swatch {
+    display: inline-block;
+    width: 18px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.poster-legend-swatch--cut {
+    height: 0;
+    border-top: 2.5px dashed #dc2626;
+}
+
+.poster-legend-swatch--glue {
+    background-color: rgba(2, 132, 199, 0.22);
+    border: 1px dashed #0284c7;
+}
+
 /* ==========================================================================
    Img2PDF & Duplicate 2x1
    ========================================================================== */

@@ -2,9 +2,32 @@ import { CATEGORIES, TOOL_LIST } from '../core/config.js';
 import { t } from '../core/i18n.js';
 import { AppState } from '../core/state.js';
 
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+
 let selectHandler = (toolId) => AppState.setActiveTool(toolId);
 let activeHomeCategory = 'all';
 let listenersBound = false;
+
+function isDesktopViewport() {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        return true;
+    }
+    return window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+}
+
+/**
+ * Synchronizes `aria-expanded` on `#btn-sidebar-toggle` based on viewport mode.
+ */
+function syncSidebarToggleAria() {
+    const toggleBtn = document.getElementById('btn-sidebar-toggle');
+    const sidebar = document.getElementById('app-sidebar');
+    if (!toggleBtn) return;
+
+    const expanded = isDesktopViewport()
+        ? !AppState.sidebarCollapsed
+        : Boolean(sidebar?.classList.contains('is-open'));
+    toggleBtn.setAttribute('aria-expanded', String(expanded));
+}
 
 /**
  * Sets or clears mobile drawer open state on `#app-sidebar` and `#sidebar-backdrop`.
@@ -13,7 +36,6 @@ let listenersBound = false;
 function setMobileDrawerOpen(open) {
     const sidebar = document.getElementById('app-sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
-    const mobileBtn = document.getElementById('btn-mobile-menu');
 
     sidebar?.classList.toggle('is-open', open);
     if (backdrop) {
@@ -21,7 +43,7 @@ function setMobileDrawerOpen(open) {
         backdrop.classList.toggle('hidden', !open);
         backdrop.setAttribute('aria-hidden', String(!open));
     }
-    mobileBtn?.setAttribute('aria-expanded', String(open));
+    syncSidebarToggleAria();
 }
 
 /**
@@ -30,9 +52,21 @@ function setMobileDrawerOpen(open) {
  */
 function applyCollapsedState(collapsed) {
     const sidebar = document.getElementById('app-sidebar');
-    const collapseBtn = document.getElementById('btn-sidebar-collapse');
     sidebar?.classList.toggle('is-collapsed', Boolean(collapsed));
-    collapseBtn?.setAttribute('aria-expanded', String(!collapsed));
+    syncSidebarToggleAria();
+}
+
+/**
+ * Toggles the desktop sidebar rail or mobile off-canvas drawer depending on viewport width.
+ */
+function handleSidebarToggle() {
+    if (isDesktopViewport()) {
+        AppState.setSidebarCollapsed(!AppState.sidebarCollapsed);
+        return;
+    }
+    const sidebar = document.getElementById('app-sidebar');
+    const isOpen = Boolean(sidebar?.classList.contains('is-open'));
+    setMobileDrawerOpen(!isOpen);
 }
 
 /**
@@ -74,7 +108,7 @@ function renderSidebarNav() {
             btn.dataset.accent = tool.accent;
 
             const title = t(tool.titleKey);
-            btn.setAttribute('title', title);
+            btn.dataset.tooltip = title;
             btn.setAttribute('aria-label', title);
 
             const iconWrap = document.createElement('span');
@@ -243,24 +277,33 @@ export function initSidebar({ onSelectTool } = {}) {
     if (!listenersBound) {
         listenersBound = true;
 
-        document.getElementById('btn-sidebar-collapse')?.addEventListener('click', () => {
-            AppState.setSidebarCollapsed(!AppState.sidebarCollapsed);
-        });
+        document.getElementById('btn-sidebar-toggle')?.addEventListener('click', handleSidebarToggle);
 
-        document.getElementById('btn-mobile-menu')?.addEventListener('click', () => {
-            const sidebar = document.getElementById('app-sidebar');
-            const isOpen = Boolean(sidebar?.classList.contains('is-open'));
-            setMobileDrawerOpen(!isOpen);
+        document.getElementById('btn-mobile-close')?.addEventListener('click', () => {
+            setMobileDrawerOpen(false);
         });
 
         document.getElementById('sidebar-backdrop')?.addEventListener('click', () => {
             setMobileDrawerOpen(false);
         });
 
-        document.getElementById('brand-home-btn')?.addEventListener('click', (event) => {
+        const handleBrandHomeClick = (event) => {
             event.preventDefault();
             handleToolSelect('home');
-        });
+        };
+        document.getElementById('brand-home-btn')?.addEventListener('click', handleBrandHomeClick);
+        document.getElementById('brand-home-mobile-btn')?.addEventListener('click', handleBrandHomeClick);
+
+        if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+            const mq = window.matchMedia(DESKTOP_MEDIA_QUERY);
+            const handleViewportChange = () => {
+                if (mq.matches) {
+                    setMobileDrawerOpen(false);
+                }
+                syncSidebarToggleAria();
+            };
+            mq.addEventListener?.('change', handleViewportChange);
+        }
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {

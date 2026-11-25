@@ -1,4 +1,4 @@
-import { APP_VERSION, TOOL_LIST, getToolMeta } from './core/config.js';
+import { TOOL_LIST, getToolMeta } from './core/config.js';
 import { AppState } from './core/state.js';
 import { applyI18n, t } from './core/i18n.js';
 import { initTheme } from './ui/theme.js';
@@ -22,6 +22,26 @@ import { initCedulaTool } from './tools/cedula.js';
 
 const VALID_TOOL_IDS = new Set(TOOL_LIST.map((item) => item.id));
 
+function syncTopbarTitle(toolId) {
+    const titleEl = document.getElementById('topbar-tool-title');
+    const sepEl = document.getElementById('topbar-tool-sep');
+    const isHome = toolId === 'home';
+
+    if (sepEl) {
+        sepEl.classList.toggle('hidden', isHome);
+    }
+    if (titleEl) {
+        if (isHome) {
+            titleEl.textContent = '';
+            titleEl.classList.add('hidden');
+        } else {
+            const meta = getToolMeta(toolId);
+            titleEl.textContent = t(meta.sectTitleKey || meta.titleKey);
+            titleEl.classList.remove('hidden');
+        }
+    }
+}
+
 function updateActiveSectionDom(toolId) {
     const sections = document.querySelectorAll('.tool-section[id^="section-"]');
     for (const sec of sections) {
@@ -30,12 +50,7 @@ function updateActiveSectionDom(toolId) {
         sec.classList.toggle('is-active', isTarget);
     }
 
-    const meta = getToolMeta(toolId);
-    const titleEl = document.getElementById('topbar-tool-title');
-    if (titleEl) {
-        titleEl.textContent = toolId === 'home' ? t('nav_home') : t(meta.sectTitleKey || meta.titleKey);
-    }
-
+    syncTopbarTitle(toolId);
     syncSidebarActive(toolId);
     window.scrollTo({ top: 0, behavior: 'instant' });
     window.lucide?.createIcons?.();
@@ -64,10 +79,6 @@ function bootstrap() {
     if (yearEl) {
         yearEl.textContent = String(new Date().getFullYear());
     }
-    const versionEl = document.getElementById('app-version-badge');
-    if (versionEl) {
-        versionEl.textContent = `v${APP_VERSION}`;
-    }
 
     initTheme();
     applyI18n();
@@ -80,14 +91,7 @@ function bootstrap() {
 
     AppState.on('lang:changed', () => {
         applyI18n();
-        const meta = getToolMeta(AppState.activeTool);
-        const titleEl = document.getElementById('topbar-tool-title');
-        if (titleEl) {
-            titleEl.textContent =
-                AppState.activeTool === 'home'
-                    ? t('nav_home')
-                    : t(meta.sectTitleKey || meta.titleKey);
-        }
+        syncTopbarTitle(AppState.activeTool);
         window.lucide?.createIcons?.();
     });
 

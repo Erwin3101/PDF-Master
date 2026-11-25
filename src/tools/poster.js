@@ -4,6 +4,7 @@ import { buildOutputName } from '../core/fileNaming.js';
 import { PAPER_SIZES, clamp, computePosterLayout } from '../core/geometry.js';
 import { detectFileKind, decodeImageFile, openPdfFile, renderPdfPageToCanvas } from '../core/fileLoader.js';
 import { PrintService } from '../core/printService.js';
+import { drawScissorsToCtx, drawScissorsToPdf } from '../core/cutMarks.js';
 import { t } from '../core/i18n.js';
 import { ToastManager } from '../ui/toastManager.js';
 import { ProgressModal } from '../ui/progressModal.js';
@@ -129,6 +130,7 @@ function getDom() {
         statDims: document.getElementById('poster-stat-dims'),
         statPaper: document.getElementById('poster-stat-paper'),
         previewCanvas: document.getElementById('poster-preview-canvas'),
+        cutLegend: document.getElementById('poster-cut-legend'),
         previewCaption: document.getElementById('poster-preview-caption'),
         downloadBtn: document.getElementById('poster-download-btn'),
         printBtn: document.getElementById('poster-print-btn'),
@@ -595,9 +597,11 @@ export function renderPosterPreview() {
         ctx.drawImage(previewBitmap, sx, sy, sw, sh, dx, dy, dw, dh);
     }
 
-    // 3. Draw overlap bands when overlap > 0
+    // 3. Draw overlap / glue tab zones when overlap > 0
     if (layout.cols > 1 && layout.overlapMm > 0) {
-        ctx.fillStyle = 'rgba(236, 72, 153, 0.16)';
+        ctx.fillStyle = settings.showCropMarks
+            ? 'rgba(2, 132, 199, 0.14)'
+            : 'rgba(236, 72, 153, 0.14)';
         for (let c = 1; c < layout.cols; c++) {
             const bx = (margin + c * stepX) * pxPerMm;
             const bw = layout.overlapMm * pxPerMm;
@@ -605,7 +609,9 @@ export function renderPosterPreview() {
         }
     }
     if (layout.rows > 1 && layout.overlapYMm > 0) {
-        ctx.fillStyle = 'rgba(236, 72, 153, 0.16)';
+        ctx.fillStyle = settings.showCropMarks
+            ? 'rgba(2, 132, 199, 0.14)'
+            : 'rgba(236, 72, 153, 0.14)';
         for (let r = 1; r < layout.rows; r++) {
             const by = (margin + r * stepY) * pxPerMm;
             const bh = layout.overlapYMm * pxPerMm;
@@ -613,11 +619,11 @@ export function renderPosterPreview() {
         }
     }
 
-    // 4. Draw each sheet's printable boundary
+    // 4. Draw each sheet's printable boundary & glue alignment lines
     ctx.save();
-    ctx.strokeStyle = 'rgba(30, 41, 59, 0.45)';
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([5, 4]);
+    ctx.setLineDash([4, 4]);
     for (const tile of layout.tiles) {
         const px = (margin + tile.col * stepX) * pxPerMm;
         const py = (margin + tile.row * stepY) * pxPerMm;
@@ -627,11 +633,11 @@ export function renderPosterPreview() {
     }
     ctx.restore();
 
-    // 5. Draw thin crop corner ticks if enabled
+    // 5. Draw clear cut lines (red + scissors) vs outer corner ticks
     if (settings.showCropMarks) {
         ctx.save();
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.2;
         const tickArm = clamp(margin * pxPerMm * 0.65, 4, 9);
 
         for (const tile of layout.tiles) {
@@ -641,25 +647,100 @@ export function renderPosterPreview() {
             const y1 = y0 + layout.printableH * pxPerMm;
 
             ctx.beginPath();
-            // Top-left corner
             ctx.moveTo(x0, y0 + tickArm);
             ctx.lineTo(x0, y0);
             ctx.lineTo(x0 + tickArm, y0);
-            // Top-right corner
             ctx.moveTo(x1 - tickArm, y0);
             ctx.lineTo(x1, y0);
             ctx.lineTo(x1, y0 + tickArm);
-            // Bottom-left corner
             ctx.moveTo(x0, y1 - tickArm);
             ctx.lineTo(x0, y1);
             ctx.lineTo(x0 + tickArm, y1);
-            // Bottom-right corner
             ctx.moveTo(x1 - tickArm, y1);
             ctx.lineTo(x1, y1);
             ctx.lineTo(x1, y1 - tickArm);
             ctx.stroke();
         }
         ctx.restore();
+
+        // Highlight the exact interior cut seams where sheets must be trimmed (red dashed + scissors)
+        if (layout.cols > 1 || layout.rows > 1) {
+            const drawPreviewScissorsBadge = (cxPx, cyPx, isVertical) => {
+                const badgeScale = Math.max(2.2, Math.min(3.3, pxPerMm * 1.15));
+                const badgeR = 2.6 * badgeScale;
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 1.25;
+                ctx.beginPath();
+                ctx.arc(cxPx, cyPx, badgeR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+                drawScissorsToCtx(ctx, cxPx / badgeScale, cyPx / badgeScale, badgeScale, isVertical, '#dc2626');
+            };
+
+            ctx.save();
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 1.65;
+            ctx.setLineDash([5, 3]);
+
+            const topY = margin * pxPerMm;
+            const botY = (margin + layout.totalH) * pxPerMm;
+            const leftX = margin * pxPerMm;
+            const rightX = (margin + layout.totalW) * pxPerMm;
+
+            for (let c = 0; c < layout.cols - 1; c++) {
+                const seamX = (margin + c * stepX + layout.printableW) * pxPerMm;
+                ctx.beginPath();
+                ctx.moveTo(seamX, topY);
+                ctx.lineTo(seamX, botY);
+                ctx.stroke();
+            }
+
+            for (let r = 0; r < layout.rows - 1; r++) {
+                const seamY = (margin + r * stepY + layout.printableH) * pxPerMm;
+                ctx.beginPath();
+                ctx.moveTo(leftX, seamY);
+                ctx.lineTo(rightX, seamY);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // Place crisp scissor badges along each seam (centered per tile when large enough)
+            const tilePxW = layout.printableW * pxPerMm;
+            const tilePxH = layout.printableH * pxPerMm;
+            for (let c = 0; c < layout.cols - 1; c++) {
+                const seamX = (margin + c * stepX + layout.printableW) * pxPerMm;
+                if (tilePxH >= 54) {
+                    for (let r = 0; r < layout.rows; r++) {
+                        const rowMidY = (margin + r * stepY + layout.printableH / 2) * pxPerMm;
+                        drawPreviewScissorsBadge(seamX, rowMidY, true);
+                    }
+                } else {
+                    drawPreviewScissorsBadge(seamX, (topY + botY) / 2, true);
+                }
+            }
+            for (let r = 0; r < layout.rows - 1; r++) {
+                const seamY = (margin + r * stepY + layout.printableH) * pxPerMm;
+                if (tilePxW >= 54) {
+                    for (let c = 0; c < layout.cols; c++) {
+                        const colMidX = (margin + c * stepX + layout.printableW / 2) * pxPerMm;
+                        drawPreviewScissorsBadge(colMidX, seamY, false);
+                    }
+                } else {
+                    drawPreviewScissorsBadge((leftX + rightX) / 2, seamY, false);
+                }
+            }
+        }
+    }
+
+    if (dom.cutLegend) {
+        dom.cutLegend.classList.toggle('hidden', !(settings.showCropMarks && layout.totalPages > 1));
+        const glueLegendItem = dom.cutLegend.querySelector('[data-i18n="poster_legend_glue"]')?.closest('.poster-legend-item');
+        if (glueLegendItem) {
+            glueLegendItem.classList.toggle('hidden', layout.overlapMm <= 0 && layout.overlapYMm <= 0);
+        }
     }
 
     // 6. Draw subtle tile badge if enabled
@@ -969,9 +1050,143 @@ async function handlePosterFiles(files) {
     }
 }
 
+const POSTER_CUT_RGB = Object.freeze({ r: 220, g: 38, b: 38 });
+const POSTER_GLUE_RGB = Object.freeze({ r: 2, g: 132, b: 199 });
+const POSTER_TICK_RGB = Object.freeze({ r: 71, g: 85, b: 105 });
+
 /**
- * Draws fine dark-slate crop marks (0.25mm), trim edge indicators, overlap guides,
- * and optional tile reference label onto the current jsPDF page.
+ * Draws a crimson cut seam (`dashed` + margin extension ticks + vector scissors + "RECORTAR"/"CUT")
+ * on one edge of the current jsPDF poster tile.
+ */
+function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side }) {
+    const hasDash = typeof doc.setLineDashPattern === 'function';
+    const isVertical = side === 'left' || side === 'right';
+    const sx = side === 'right' ? x1 : x0;
+    const sy = side === 'bottom' ? y1 : y0;
+
+    if (hasDash) doc.setLineDashPattern([2.5, 1.5], 0);
+    doc.setDrawColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
+    doc.setLineWidth(0.38);
+
+    if (isVertical) {
+        doc.line(sx, y0, sx, y1);
+        if (hasDash) doc.setLineDashPattern([], 0);
+        doc.line(sx, y0 - tickGap, sx, y0 - tickGap - tickLen);
+        doc.line(sx, y1 + tickGap, sx, y1 + tickGap + tickLen);
+    } else {
+        doc.line(x0, sy, x1, sy);
+        if (hasDash) doc.setLineDashPattern([], 0);
+        doc.line(x0 - tickGap, sy, x0 - tickGap - tickLen, sy);
+        doc.line(x1 + tickGap, sy, x1 + tickGap + tickLen, sy);
+    }
+
+    const label = msg('RECORTAR', 'CUT');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
+
+    const textW = doc.getTextWidth(label);
+    const iconScale = 0.85;
+    const iconW = 3.4;
+    const gap = 1.5;
+    const groupW = iconW + gap + textW;
+
+    if (isVertical) {
+        const cx = side === 'right' ? x1 + margin * 0.56 : x0 - margin * 0.48;
+        const cy = (y0 + y1) / 2;
+        const iconCy = cy + groupW / 2 - iconW / 2;
+        drawScissorsToPdf(doc, cx, iconCy, iconScale, true, POSTER_CUT_RGB);
+        const textStartY = cy + groupW / 2 - iconW - gap;
+        doc.text(label, cx + 0.85, textStartY, { angle: 90 });
+    } else {
+        const cx = (x0 + x1) / 2;
+        const cy = side === 'bottom' ? y1 + margin * 0.58 : y0 - margin * 0.44;
+        const iconCx = cx - groupW / 2 + iconW / 2;
+        drawScissorsToPdf(doc, iconCx, cy, iconScale, false, POSTER_CUT_RGB);
+        const textStartX = cx - groupW / 2 + iconW + gap;
+        doc.text(label, textStartX, cy + 0.85);
+    }
+}
+
+/**
+ * Draws a blue "DO NOT CUT" overlap alignment guide + neighbor reference label
+ * inside the scrap margin that gets covered by the overlapping sheet.
+ */
+function drawPdfGlueEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, guidePos, side, neighborLabel }) {
+    const hasDash = typeof doc.setLineDashPattern === 'function';
+    const isVertical = side === 'left';
+
+    if (hasDash) doc.setLineDashPattern([], 0);
+    doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+    doc.setLineWidth(0.35);
+
+    if (isVertical) {
+        doc.line(guidePos, y0 - tickGap, guidePos, y0 - tickGap - tickLen);
+        doc.line(guidePos, y1 + tickGap, guidePos, y1 + tickGap + tickLen);
+        if (hasDash) doc.setLineDashPattern([2, 1.8], 0);
+        doc.line(guidePos, y0, guidePos, y1);
+    } else {
+        doc.line(x0 - tickGap, guidePos, x0 - tickGap - tickLen, guidePos);
+        doc.line(x1 + tickGap, guidePos, x1 + tickGap + tickLen, guidePos);
+        if (hasDash) doc.setLineDashPattern([2, 1.8], 0);
+        doc.line(x0, guidePos, x1, guidePos);
+    }
+
+    if (hasDash) doc.setLineDashPattern([], 0);
+
+    const label = msg(
+        `NO CORTAR · Pegar ${neighborLabel}`,
+        `DO NOT CUT · Align ${neighborLabel}`
+    );
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+    const textW = doc.getTextWidth(label);
+
+    if (isVertical) {
+        const cx = x0 - margin * 0.48;
+        const cy = (y0 + y1) / 2;
+        doc.text(label, cx + 0.8, cy + textW / 2, { angle: 90 });
+    } else {
+        const cx = (x0 + x1) / 2;
+        const cy = y0 - margin * 0.44;
+        doc.text(label, cx - textW / 2, cy + 0.8);
+    }
+}
+
+/**
+ * Formats a short bottom-margin assembly summary telling the user which edges of this sheet to cut.
+ */
+function buildTileAssemblySummary(tile) {
+    const cut = tile.cutEdges || {};
+    const glue = tile.glueEdges || {};
+    const sideNames = AppState.lang === 'en'
+        ? { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' }
+        : { top: 'Sup', right: 'Der', bottom: 'Inf', left: 'Izq' };
+
+    const cuts = ['top', 'right', 'bottom', 'left'].filter((k) => cut[k]).map((k) => sideNames[k]);
+    const glues = ['top', 'left'].filter((k) => glue[k]).map((k) => sideNames[k]);
+
+    if (cuts.length === 0 && glues.length > 0) {
+        return {
+            text: msg('Hoja base: NO cortar bordes', 'Base sheet: DO NOT cut seams'),
+            isBaseOnly: true,
+        };
+    }
+
+    const parts = [];
+    if (cuts.length > 0) {
+        parts.push(msg(`Cortar: ${cuts.join(', ')}`, `Cut: ${cuts.join(', ')}`));
+    }
+    if (glues.length > 0) {
+        parts.push(msg(`No cortar: ${glues.join(', ')}`, `Keep: ${glues.join(', ')}`));
+    }
+    return { text: parts.join(' | '), isBaseOnly: false };
+}
+
+/**
+ * Draws outer corner crop marks, explicit red cut lines with vector scissors,
+ * blue "DO NOT CUT" overlap alignment guides, and optional tile labels onto jsPDF.
  *
  * @param {object} doc jsPDF instance
  * @param {object} layout Computed poster layout
@@ -983,78 +1198,90 @@ function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabe
     const x1 = x0 + pw;
     const y1 = y0 + ph;
     const margin = layout.marginMm;
+    const bottomLabelY = Math.min(layout.sheetH - 1.8, y1 + Math.max(3.6, margin * 0.58));
 
     if (showCropMarks) {
         const tickGap = Math.min(1, margin * 0.15);
         const tickLen = Math.max(2, Math.min(5, margin - tickGap - 0.5));
+        const hasDash = typeof doc.setLineDashPattern === 'function';
 
-        doc.setDrawColor(51, 65, 85);
+        if (hasDash) doc.setLineDashPattern([], 0);
+        doc.setDrawColor(POSTER_TICK_RGB.r, POSTER_TICK_RGB.g, POSTER_TICK_RGB.b);
         doc.setLineWidth(0.25);
 
         // 4 outer printable margin crop corner ticks
-        // Top-left
         doc.line(x0, y0 - tickGap, x0, y0 - tickGap - tickLen);
         doc.line(x0 - tickGap, y0, x0 - tickGap - tickLen, y0);
-        // Top-right
         doc.line(x1, y0 - tickGap, x1, y0 - tickGap - tickLen);
         doc.line(x1 + tickGap, y0, x1 + tickGap + tickLen, y0);
-        // Bottom-left
         doc.line(x0, y1 + tickGap, x0, y1 + tickGap + tickLen);
         doc.line(x0 - tickGap, y1, x0 - tickGap - tickLen, y1);
-        // Bottom-right
         doc.line(x1, y1 + tickGap, x1, y1 + tickGap + tickLen);
         doc.line(x1 + tickGap, y1, x1 + tickGap + tickLen, y1);
 
-        // Trim edge alignment hairline along edges shared with adjacent tiles
-        const trim = tile.trimEdges || {};
-        const hasDash = typeof doc.setLineDashPattern === 'function';
-        if (hasDash) {
-            doc.setLineDashPattern([1.2, 1.5], 0);
+        // Explicit CUT edges (red dashed + scissors + RECORTAR/CUT)
+        const cut = tile.cutEdges || {};
+        for (const side of ['top', 'right', 'bottom', 'left']) {
+            if (cut[side]) {
+                drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side });
+            }
         }
-        doc.setDrawColor(71, 85, 105);
-        if (trim.top) doc.line(x0, y0, x1, y0);
-        if (trim.right) doc.line(x1, y0, x1, y1);
-        if (trim.bottom) doc.line(x0, y1, x1, y1);
-        if (trim.left) doc.line(x0, y0, x0, y1);
 
-        // Overlap alignment guides + margin ticks
+        // Explicit DO-NOT-CUT glue tab alignment guides (blue dashed + NO CORTAR)
+        const glue = tile.glueEdges || {};
         const guides = tile.overlapGuides || {};
-        if (typeof guides.left === 'number') {
-            const gx = guides.left;
-            if (hasDash) doc.setLineDashPattern([], 0);
-            doc.setDrawColor(51, 65, 85);
-            doc.line(gx, y0 - tickGap, gx, y0 - tickGap - tickLen);
-            doc.line(gx, y1 + tickGap, gx, y1 + tickGap + tickLen);
-
-            if (hasDash) doc.setLineDashPattern([2, 2], 0);
-            doc.setDrawColor(100, 116, 139);
-            doc.line(gx, y0, gx, y1);
+        if (glue.left && typeof guides.left === 'number') {
+            drawPdfGlueEdge(doc, {
+                x0,
+                y0,
+                x1,
+                y1,
+                margin,
+                tickGap,
+                tickLen,
+                guidePos: guides.left,
+                side: 'left',
+                neighborLabel: `F${tile.row + 1}-C${tile.col}`,
+            });
         }
-        if (typeof guides.top === 'number') {
-            const gy = guides.top;
-            if (hasDash) doc.setLineDashPattern([], 0);
-            doc.setDrawColor(51, 65, 85);
-            doc.line(x0 - tickGap, gy, x0 - tickGap - tickLen, gy);
-            doc.line(x1 + tickGap, gy, x1 + tickGap + tickLen, gy);
-
-            if (hasDash) doc.setLineDashPattern([2, 2], 0);
-            doc.setDrawColor(100, 116, 139);
-            doc.line(x0, gy, x1, gy);
+        if (glue.top && typeof guides.top === 'number') {
+            drawPdfGlueEdge(doc, {
+                x0,
+                y0,
+                x1,
+                y1,
+                margin,
+                tickGap,
+                tickLen,
+                guidePos: guides.top,
+                side: 'top',
+                neighborLabel: `F${tile.row}-C${tile.col + 1}`,
+            });
         }
 
         if (hasDash) {
             doc.setLineDashPattern([], 0);
         }
+
+        // Concise per-sheet instruction summary on wider sheets
+        if (layout.totalPages > 1 && pw >= 140) {
+            const summary = buildTileAssemblySummary(tile);
+            if (summary.text) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(6.5);
+                const color = summary.isBaseOnly ? POSTER_GLUE_RGB : POSTER_TICK_RGB;
+                doc.setTextColor(color.r, color.g, color.b);
+                doc.text(summary.text, x0, bottomLabelY);
+            }
+        }
     }
 
     if (showTileLabels) {
-        // Place reference label inside the bottom-right margin cleanly outside artwork & overlap guides
         const labelX = Math.max(x0 + 2, x1 - 3);
-        const labelY = Math.min(layout.sheetH - 1.8, y1 + Math.max(3.6, margin * 0.56));
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(100, 116, 139);
-        doc.text(tile.label, labelX, labelY, { align: 'right' });
+        doc.text(tile.label, labelX, bottomLabelY, { align: 'right' });
     }
 }
 

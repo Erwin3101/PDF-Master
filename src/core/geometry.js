@@ -351,6 +351,16 @@ export function computePosterLayout({
                     bottom: r < rCount - 1,
                     left: c > 0,
                 },
+                cutEdges: {
+                    top: r > 0 && effectiveOverlapY <= 0,
+                    right: c < cCount - 1,
+                    bottom: r < rCount - 1,
+                    left: c > 0 && effectiveOverlapX <= 0,
+                },
+                glueEdges: {
+                    top: r > 0 && effectiveOverlapY > 0,
+                    left: c > 0 && effectiveOverlapX > 0,
+                },
             });
         }
     }

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Master Suite v6.0</title>
+    <title>PDF Master Suite</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M9 11l7-4 7 4-7 4-7-4zm0 5l7 4 7-4m-14 5l7 4 7-4' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
 
     <!-- Zero-FOUC Theme Boot -->
@@ -44,27 +44,59 @@
 </head>
 
 <body class="app-body">
+    <!-- Top Application Header -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <button type="button" id="btn-sidebar-toggle" class="icon-btn" data-i18n-title="sidebar_toggle" title="Expandir o contraer menú" aria-controls="app-sidebar" aria-expanded="true">
+                <i data-lucide="menu"></i>
+            </button>
+            <button type="button" id="brand-home-btn" class="brand-btn" title="PDF Master">
+                <span class="brand-icon" aria-hidden="true"><i data-lucide="layers"></i></span>
+                <span class="brand-title">PDF <span class="accent-text">Master</span></span>
+            </button>
+            <span id="topbar-tool-sep" class="topbar-sep hidden" aria-hidden="true">/</span>
+            <span id="topbar-tool-title" class="topbar-tool-title hidden"></span>
+        </div>
+
+        <div class="topbar-right">
+            <button type="button" id="btn-open-cmdk" class="cmdk-trigger" data-i18n-title="nav_search_shortcut">
+                <i data-lucide="search"></i>
+                <span data-i18n="nav_search_shortcut">Buscar</span>
+                <kbd>Ctrl+K</kbd>
+            </button>
+
+            <button type="button" id="btn-theme-toggle" class="icon-btn" data-i18n-title="theme_toggle" aria-pressed="false">
+                <i data-lucide="sun" class="icon-sun hidden"></i>
+                <i data-lucide="moon" class="icon-moon"></i>
+            </button>
+
+            <button type="button" id="btn-lang-toggle" class="icon-btn" data-i18n-title="lang_toggle">
+                <span id="lang-btn-text">ES</span>
+            </button>
+        </div>
+    </header>
+
     <div class="app-shell">
         <!-- Mobile Sidebar Backdrop -->
         <div id="sidebar-backdrop" class="sidebar-backdrop hidden" aria-hidden="true"></div>
 
         <!-- Collapsible Categorized Sidebar -->
         <aside id="app-sidebar" class="app-sidebar" data-i18n-aria="aria_nav_main" aria-label="Navegación principal">
-            <div class="sidebar-header">
-                <button type="button" id="brand-home-btn" class="brand-btn" title="PDF Master">
+            <div class="sidebar-mobile-header">
+                <button type="button" id="brand-home-mobile-btn" class="brand-btn" title="PDF Master">
                     <span class="brand-icon" aria-hidden="true"><i data-lucide="layers"></i></span>
                     <span class="brand-title">PDF <span class="accent-text">Master</span></span>
                 </button>
-                <button type="button" id="btn-sidebar-collapse" class="icon-btn" data-i18n-title="sidebar_toggle" title="Contraer o expandir menú" aria-expanded="true">
-                    <i data-lucide="panel-left-close"></i>
+                <button type="button" id="btn-mobile-close" class="icon-btn" data-i18n-title="btn_close" aria-label="Cerrar">
+                    <i data-lucide="x"></i>
                 </button>
             </div>
 
             <nav id="sidebar-nav" class="sidebar-nav"></nav>
 
             <div class="sidebar-footer">
-                <div class="badge" style="justify-content:center;width:100%;">
-                    <i data-lucide="shield-check" style="width:14px;height:14px;color:var(--success);"></i>
+                <div class="badge" data-i18n-title="privacy_badge" title="100% Privado · Procesamiento local">
+                    <i data-lucide="shield-check" style="width:15px;height:15px;color:var(--success);flex-shrink:0;"></i>
                     <span class="sidebar-footer-label" data-i18n="privacy_badge">100% Privado · Procesamiento local</span>
                 </div>
             </div>
@@ -72,49 +104,14 @@
 
         <!-- Main Workspace Column -->
         <div class="workspace-column">
-            <!-- Top Workspace Header -->
-            <header class="topbar">
-                <div class="topbar-left">
-                    <button type="button" id="btn-mobile-menu" class="icon-btn" data-i18n-aria="aria_open_menu" aria-label="Abrir menú" aria-expanded="false">
-                        <i data-lucide="menu"></i>
-                    </button>
-                    <h1 id="topbar-tool-title" class="topbar-tool-title">Inicio</h1>
-                    <span id="app-version-badge" class="version-badge">v6.0.0</span>
-                </div>
-
-                <div class="topbar-right">
-                    <button type="button" id="btn-open-cmdk" class="cmdk-trigger" data-i18n-title="nav_search_shortcut">
-                        <i data-lucide="search"></i>
-                        <span data-i18n="nav_search_shortcut">Buscar</span>
-                        <kbd>Ctrl+K</kbd>
-                    </button>
-
-                    <button type="button" id="btn-theme-toggle" class="icon-btn" data-i18n-title="theme_toggle" aria-pressed="false">
-                        <i data-lucide="sun" class="icon-sun hidden"></i>
-                        <i data-lucide="moon" class="icon-moon"></i>
-                    </button>
-
-                    <button type="button" id="btn-lang-toggle" class="icon-btn" data-i18n-title="lang_toggle">
-                        <span id="lang-btn-text">ES</span>
-                    </button>
-                </div>
-            </header>
-
             <!-- Active Tool Stage -->
             <main class="workspace-main">
 
                 <!-- 0. HOME DASHBOARD -->
                 <section id="section-home" class="tool-section is-active">
                     <div class="hero-banner">
-                        <h2 data-i18n="hero_title" data-i18n-html>Suite Profesional <span class="accent-text">PDF Master</span></h2>
+                        <h1 data-i18n="hero_title" data-i18n-html>Suite Profesional <span class="accent-text">PDF Master</span></h1>
                         <p data-i18n="hero_desc">Todas las herramientas que necesitas en un solo lugar. Cero servidores, 100% privado y ultra rápido.</p>
-                        <div class="hero-actions">
-                            <button type="button" id="home-search-trigger" class="hero-search-pill">
-                                <i data-lucide="search"></i>
-                                <span data-i18n="hero_search_btn" style="flex:1;text-align:left;">Buscar herramienta rápida... (Ctrl+K)</span>
-                                <kbd style="font-family:var(--font-mono);font-size:0.75rem;padding:2px 6px;border-radius:4px;background:var(--bg-hover);border:1px solid var(--border-subtle);">Ctrl+K</kbd>
-                            </button>
-                        </div>
                     </div>
 
                     <div id="home-category-filters" class="category-filters"></div>
@@ -432,6 +429,16 @@
 
                                         <div class="poster-stage">
                                             <canvas id="poster-preview-canvas" class="poster-preview-canvas"></canvas>
+                                            <div id="poster-cut-legend" class="poster-cut-legend hidden">
+                                                <span class="poster-legend-item">
+                                                    <span class="poster-legend-swatch poster-legend-swatch--cut" aria-hidden="true"></span>
+                                                    <span data-i18n="poster_legend_cut">Línea roja (✂): recortar este borde</span>
+                                                </span>
+                                                <span class="poster-legend-item">
+                                                    <span class="poster-legend-swatch poster-legend-swatch--glue" aria-hidden="true"></span>
+                                                    <span data-i18n="poster_legend_glue">Zona azul: solapa de pegado (no recortar)</span>
+                                                </span>
+                                            </div>
                                             <p id="poster-preview-caption" style="margin:0;font-size:0.8rem;color:var(--text-muted);text-align:center;"></p>
                                         </div>
                                     </div>

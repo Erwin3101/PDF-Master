@@ -249,7 +249,6 @@ export function initCommandPalette({ onSelectTool } = {}) {
     const input = document.getElementById('cmdk-input');
 
     document.getElementById('btn-open-cmdk')?.addEventListener('click', openCommandPalette);
-    document.getElementById('home-search-trigger')?.addEventListener('click', openCommandPalette);
 
     modal?.addEventListener('click', (event) => {
         const target = event.target;

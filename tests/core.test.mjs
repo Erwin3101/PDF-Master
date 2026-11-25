@@ -86,6 +86,38 @@ test('computePosterLayout (cover) fills entire printable tile grid cleanly', () 
     // Check physical dimensions reflect overlap deduction
     const expectedTotalW = layout.printableW * 2 - 10;
     assert.ok(Math.abs(layout.totalW - expectedTotalW) < 0.01);
+
+    // Overlap > 0: only leading sheets (right/bottom edges) are cut; trailing sheets use glue tabs
+    assert.deepEqual(layout.tiles[0].cutEdges, { top: false, right: true, bottom: true, left: false });
+    assert.deepEqual(layout.tiles[0].glueEdges, { top: false, left: false });
+    assert.deepEqual(layout.tiles[1].cutEdges, { top: false, right: false, bottom: true, left: false });
+    assert.deepEqual(layout.tiles[1].glueEdges, { top: false, left: true });
+    assert.deepEqual(layout.tiles[2].cutEdges, { top: false, right: true, bottom: false, left: false });
+    assert.deepEqual(layout.tiles[2].glueEdges, { top: true, left: false });
+    assert.deepEqual(layout.tiles[3].cutEdges, { top: false, right: false, bottom: false, left: false });
+    assert.deepEqual(layout.tiles[3].glueEdges, { top: true, left: true });
+});
+
+test('computePosterLayout marks all interior seams as cutEdges when overlap is 0', () => {
+    const layout = computePosterLayout({
+        imgW: 2000,
+        imgH: 2000,
+        cols: 2,
+        rows: 2,
+        paperKey: 'letter',
+        orientation: 'p',
+        fitMode: 'cover',
+        overlapMm: 0,
+        marginMm: 8,
+    });
+
+    assert.deepEqual(layout.tiles[0].cutEdges, { top: false, right: true, bottom: true, left: false });
+    assert.deepEqual(layout.tiles[1].cutEdges, { top: false, right: false, bottom: true, left: true });
+    assert.deepEqual(layout.tiles[2].cutEdges, { top: true, right: true, bottom: false, left: false });
+    assert.deepEqual(layout.tiles[3].cutEdges, { top: true, right: false, bottom: false, left: true });
+    for (const tile of layout.tiles) {
+        assert.deepEqual(tile.glueEdges, { top: false, left: false });
+    }
 });
 
 test('computeDuplicate2x1Layout respects small margins and center gap without 30mm waste', () => {
