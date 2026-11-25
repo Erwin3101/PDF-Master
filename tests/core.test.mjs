@@ -120,6 +120,133 @@ test('computePosterLayout marks all interior seams as cutEdges when overlap is 0
     }
 });
 
+test('computePosterLayout exactSrcRect has zero seam drift and zero distortion at any image or grid size', () => {
+    for (const [imgW, imgH] of [[50, 50], [80, 80], [120, 90], [400, 300], [500, 2000], [5000, 500], [1920, 1080]]) {
+        for (const [cols, rows] of [[1, 1], [2, 2], [3, 5], [8, 8], [10, 10]]) {
+            for (const fitMode of ['contain', 'cover', 'proportional']) {
+                for (const overlapMm of [0, 5, 10]) {
+                    for (const marginMm of [0, 8]) {
+                        const layout = computePosterLayout({
+                            imgW,
+                            imgH,
+                            cols,
+                            rows,
+                            paperKey: 'letter',
+                            orientation: 'auto',
+                            fitMode,
+                            overlapMm,
+                            marginMm,
+                        });
+                        assert.equal(layout.marginMm, marginMm);
+                        const pxPerMmX = layout.cropSrcRect.sw / layout.placedRectMm.w;
+                        const pxPerMmY = layout.cropSrcRect.sh / layout.placedRectMm.h;
+                        assert.ok(Math.abs(pxPerMmX - pxPerMmY) < 1e-6, 'Global placed scale must be isotropic');
+
+                        for (const tile of layout.tiles) {
+                            assert.ok(tile.exactSrcRect, `Missing exactSrcRect on tile ${tile.pageNum}`);
+                            assert.ok(tile.srcRect, `Empty tile emitted for ${imgW}x${imgH} ${cols}x${rows} ${fitMode}`);
+                            assert.ok(tile.srcRect.sx >= 0 && tile.srcRect.sx + tile.srcRect.sw <= imgW);
+                            assert.ok(tile.srcRect.sy >= 0 && tile.srcRect.sy + tile.srcRect.sh <= imgH);
+                            assert.ok(tile.exactSrcRect.sx >= 0 && tile.exactSrcRect.sx + tile.exactSrcRect.sw <= imgW + 1e-6);
+                            assert.ok(tile.exactSrcRect.sy >= 0 && tile.exactSrcRect.sy + tile.exactSrcRect.sh <= imgH + 1e-6);
+
+                            const exactAspect = tile.exactSrcRect.sw / tile.exactSrcRect.sh;
+                            const destAspect = tile.destRectMm.w / tile.destRectMm.h;
+                            assert.ok(
+                                Math.abs(exactAspect - destAspect) < 1e-5,
+                                `Exact aspect mismatch (${imgW}x${imgH} ${cols}x${rows} ${fitMode}): ${exactAspect} vs ${destAspect}`
+                            );
+                        }
+
+                        // Verify adjacent horizontal & vertical seams align to exact source pixel coordinates
+                        for (let r = 0; r < layout.rows; r++) {
+                            for (let c = 0; c < layout.cols - 1; c++) {
+                                const left = layout.tiles[r * layout.cols + c];
+                                const right = layout.tiles[r * layout.cols + c + 1];
+                                const leftRightEdgePx = left.exactSrcRect.sx + left.exactSrcRect.sw;
+                                const expectedOverlapPx = layout.overlapMm * pxPerMmX;
+                                const actualOverlapPx = leftRightEdgePx - right.exactSrcRect.sx;
+                                assert.ok(
+                                    Math.abs(actualOverlapPx - expectedOverlapPx) < 1e-4,
+                                    `Seam X mismatch (${imgW}x${imgH} ${cols}x${rows} ${fitMode}): ${actualOverlapPx} vs ${expectedOverlapPx}`
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+});
+
+test('computePosterLayout (contain) eliminates blank pages and overlap-only sliver pages', () => {
+    const tallOnWide = computePosterLayout({
+        imgW: 600,
+        imgH: 1800,
+        cols: 3,
+        rows: 2,
+        paperKey: 'letter',
+        orientation: 'auto',
+        fitMode: 'contain',
+        overlapMm: 5,
+        marginMm: 8,
+    });
+    assert.equal(tallOnWide.cols, 1);
+    assert.equal(tallOnWide.rows, 2);
+    assert.equal(tallOnWide.totalPages, 2);
+
+    const tallSliverCase = computePosterLayout({
+        imgW: 500,
+        imgH: 2000,
+        cols: 3,
+        rows: 3,
+        paperKey: 'letter',
+        orientation: 'auto',
+        fitMode: 'contain',
+        overlapMm: 5,
+        marginMm: 8,
+    });
+    assert.equal(tallSliverCase.cols, 1);
+    assert.equal(tallSliverCase.rows, 3);
+    assert.equal(tallSliverCase.totalPages, 3);
+
+    const wideOnColumn = computePosterLayout({
+        imgW: 1920,
+        imgH: 1080,
+        cols: 1,
+        rows: 5,
+        paperKey: 'letter',
+        orientation: 'auto',
+        fitMode: 'contain',
+        overlapMm: 5,
+        marginMm: 8,
+    });
+    assert.equal(wideOnColumn.cols, 1);
+    assert.equal(wideOnColumn.rows, 1);
+    assert.equal(wideOnColumn.totalPages, 1);
+});
+
+test('computePosterLayout (proportional) auto-computes rows to cover image cleanly without cropping', () => {
+    const wide = computePosterLayout({
+        imgW: 1920,
+        imgH: 1080,
+        cols: 3,
+        rows: 1,
+        paperKey: 'letter',
+        orientation: 'auto',
+        fitMode: 'proportional',
+        overlapMm: 5,
+        marginMm: 8,
+    });
+    assert.equal(wide.cols, 3);
+    assert.ok(wide.rows >= 2);
+    assert.equal(wide.cropSrcRect.sx, 0);
+    assert.equal(wide.cropSrcRect.sy, 0);
+    assert.equal(wide.cropSrcRect.sw, 1920);
+    assert.equal(wide.cropSrcRect.sh, 1080);
+    assert.ok(Math.abs(wide.placedRectMm.w - wide.totalW) < 0.01);
+});
+
 test('computeDuplicate2x1Layout respects small margins and center gap without 30mm waste', () => {
     const layout = computeDuplicate2x1Layout({
         paperKey: 'letter',

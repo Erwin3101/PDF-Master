@@ -179,8 +179,11 @@ export function computeDuplicate2x1Layout({
 }
 
 /**
- * Computes exact distortion-free tile geometry for Poster 2.0.
- * Uses integer pixel boundaries on source image crops to prevent white lines or clipping.
+ * Computes exact distortion-free tile geometry for Poster.
+ * Provides continuous `exactSrcRect` for sub-pixel-accurate Canvas/PDF rendering
+ * (zero seam drift or aspect distortion across any image/grid size) alongside
+ * strictly in-bounds integer `srcRect` bounds, trims empty/sliver sheets in
+ * `contain` mode, and supports `proportional` auto-row sizing.
  */
 export function computePosterLayout({
     imgW,
@@ -195,36 +198,87 @@ export function computePosterLayout({
 }) {
     const safeImgW = Math.max(1, Math.round(Number(imgW) || 1));
     const safeImgH = Math.max(1, Math.round(Number(imgH) || 1));
-    const cCount = clamp(Math.round(Number(cols) || 1), 1, 10);
-    const rCount = clamp(Math.round(Number(rows) || 1), 1, 10);
+    const requestedCols = clamp(Math.round(Number(cols) || 1), 1, 15);
+    const requestedRows = clamp(Math.round(Number(rows) || 1), 1, 15);
     const overlap = clamp(Number(overlapMm) || 0, 0, 15);
-    const margin = clamp(Number(marginMm) || 0, 0, 20);
+    const parsedMargin = Number(marginMm);
+    const margin = clamp(Number.isFinite(parsedMargin) ? parsedMargin : 8, 0, 20);
+    const normalizedFitMode =
+        fitMode === 'cover' || fitMode === 'proportional' ? fitMode : 'contain';
 
     const spec = PAPER_SIZES[paperKey] || PAPER_SIZES.letter;
     const shortDim = Math.min(spec.w, spec.h);
     const longDim = Math.max(spec.w, spec.h);
+    const imgRatio = safeImgW / safeImgH;
 
-    const evaluateOrientation = (sheetW, sheetH) => {
+    const computeGridMetrics = (sheetW, sheetH, colCount, rowCount) => {
         const printableW = Math.max(10, sheetW - margin * 2);
         const printableH = Math.max(10, sheetH - margin * 2);
-        const effOx = cCount > 1 ? Math.min(overlap, printableW * 0.35) : 0;
-        const effOy = rCount > 1 ? Math.min(overlap, printableH * 0.35) : 0;
-        const totalW = printableW + (cCount - 1) * (printableW - effOx);
-        const totalH = printableH + (rCount - 1) * (printableH - effOy);
-        const scaleContain = Math.min(totalW / safeImgW, totalH / safeImgH);
+        const effOx = colCount > 1 ? Math.min(overlap, printableW * 0.35) : 0;
+        const effOy = rowCount > 1 ? Math.min(overlap, printableH * 0.35) : 0;
+        const stepX = printableW - effOx;
+        const stepY = printableH - effOy;
+        const totalW = printableW + (colCount - 1) * stepX;
+        const totalH = printableH + (rowCount - 1) * stepY;
+        return { printableW, printableH, effOx, effOy, stepX, stepY, totalW, totalH };
+    };
+
+    const evaluateOrientation = (sheetW, sheetH) => {
+        if (normalizedFitMode === 'proportional') {
+            const printableW = Math.max(10, sheetW - margin * 2);
+            const printableH = Math.max(10, sheetH - margin * 2);
+            const effOx = requestedCols > 1 ? Math.min(overlap, printableW * 0.35) : 0;
+            const totalW = printableW + (requestedCols - 1) * (printableW - effOx);
+            const idealH = totalW / imgRatio;
+            // Allow 0.5 mm tolerance before spilling onto an extra row
+            let propRows = 1;
+            if (idealH > printableH + 0.5) {
+                const effOyMulti = Math.min(overlap, printableH * 0.35);
+                const stepYMulti = printableH - effOyMulti;
+                propRows = clamp(
+                    1 + Math.ceil((idealH - printableH - 0.5) / stepYMulti),
+                    1,
+                    25
+                );
+            }
+            const metrics = computeGridMetrics(sheetW, sheetH, requestedCols, propRows);
+            const scale = Math.min(metrics.totalW / safeImgW, metrics.totalH / safeImgH);
+            const placedW = safeImgW * scale;
+            const placedH = safeImgH * scale;
+            const sheetArea = Math.max(1, requestedCols * propRows * sheetW * sheetH);
+            const efficiency = (placedW * placedH) / sheetArea;
+            return {
+                sheetW,
+                sheetH,
+                propRows,
+                areaUsed: placedW * placedH,
+                efficiency,
+                coverLoss: 0,
+            };
+        }
+
+        const m = computeGridMetrics(sheetW, sheetH, requestedCols, requestedRows);
+        const scaleContain = Math.min(m.totalW / safeImgW, m.totalH / safeImgH);
         const areaUsed = safeImgW * scaleContain * (safeImgH * scaleContain);
-        const coverCropRatio = Math.max(totalW / safeImgW, totalH / safeImgH);
+        const coverCropRatio = Math.max(m.totalW / safeImgW, m.totalH / safeImgH);
         const coverLoss =
-            1 - (totalW * totalH) / Math.max(1, safeImgW * coverCropRatio * safeImgH * coverCropRatio);
-        return { sheetW, sheetH, totalW, totalH, areaUsed, coverLoss };
+            1 - (m.totalW * m.totalH) / Math.max(1, safeImgW * coverCropRatio * safeImgH * coverCropRatio);
+        return { sheetW, sheetH, areaUsed, coverLoss, efficiency: 0 };
     };
 
     let resolvedOrient = orientation;
     if (orientation === 'auto') {
         const pEval = evaluateOrientation(shortDim, longDim);
         const lEval = evaluateOrientation(longDim, shortDim);
-        if (fitMode === 'cover') {
+        if (normalizedFitMode === 'cover') {
             resolvedOrient = lEval.coverLoss < pEval.coverLoss ? 'l' : 'p';
+        } else if (normalizedFitMode === 'proportional') {
+            // Prefer matching image orientation unless the alternate orientation yields substantially better sheet usage
+            if (Math.abs(lEval.efficiency - pEval.efficiency) > 0.12) {
+                resolvedOrient = lEval.efficiency > pEval.efficiency ? 'l' : 'p';
+            } else {
+                resolvedOrient = imgRatio >= 1 ? 'l' : 'p';
+            }
         } else {
             resolvedOrient = lEval.areaUsed > pEval.areaUsed ? 'l' : 'p';
         }
@@ -232,31 +286,82 @@ export function computePosterLayout({
 
     const sheetW = resolvedOrient === 'l' ? longDim : shortDim;
     const sheetH = resolvedOrient === 'l' ? shortDim : longDim;
-    const printableW = Math.max(10, sheetW - margin * 2);
-    const printableH = Math.max(10, sheetH - margin * 2);
+    const basePrintableW = Math.max(10, sheetW - margin * 2);
+    const basePrintableH = Math.max(10, sheetH - margin * 2);
 
-    // Effective overlap clamped so step > 10mm
-    const effectiveOverlapX = cCount > 1 ? Math.min(overlap, printableW * 0.35) : 0;
-    const effectiveOverlapY = rCount > 1 ? Math.min(overlap, printableH * 0.35) : 0;
-    const stepX = printableW - effectiveOverlapX;
-    const stepY = printableH - effectiveOverlapY;
+    let cCount = requestedCols;
+    let rCount = requestedRows;
 
-    const totalW = printableW + (cCount - 1) * stepX;
-    const totalH = printableH + (rCount - 1) * stepY;
+    if (normalizedFitMode === 'proportional') {
+        const effOx = cCount > 1 ? Math.min(overlap, basePrintableW * 0.35) : 0;
+        const baseTotalW = basePrintableW + (cCount - 1) * (basePrintableW - effOx);
+        const idealH = baseTotalW / imgRatio;
+        if (idealH <= basePrintableH + 0.5) {
+            rCount = 1;
+        } else {
+            const effOyMulti = Math.min(overlap, basePrintableH * 0.35);
+            const stepYMulti = basePrintableH - effOyMulti;
+            rCount = clamp(
+                1 + Math.ceil((idealH - basePrintableH - 0.5) / stepYMulti),
+                1,
+                25
+            );
+        }
+    }
 
-    // Map image onto the assembled poster plane [0, totalW] x [0, totalH] in mm
-    const imgRatio = safeImgW / safeImgH;
+    let metrics = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+
+    // Trim completely blank / overlap-sliver sheets in contain mode so every sheet carries real image content
+    if (normalizedFitMode === 'contain') {
+        const initialRatio = metrics.totalW / metrics.totalH;
+        const initPlacedW = imgRatio > initialRatio ? metrics.totalW : metrics.totalH * imgRatio;
+        const initPlacedH = imgRatio > initialRatio ? metrics.totalW / imgRatio : metrics.totalH;
+
+        const minCols =
+            initPlacedW <= basePrintableW + 0.5
+                ? 1
+                : clamp(
+                      1 + Math.ceil((initPlacedW - basePrintableW - 0.5) / Math.max(1, metrics.stepX)),
+                      1,
+                      cCount
+                  );
+        const minRows =
+            initPlacedH <= basePrintableH + 0.5
+                ? 1
+                : clamp(
+                      1 + Math.ceil((initPlacedH - basePrintableH - 0.5) / Math.max(1, metrics.stepY)),
+                      1,
+                      rCount
+                  );
+
+        if (minCols < cCount || minRows < rCount) {
+            cCount = minCols;
+            rCount = minRows;
+            metrics = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+        }
+    }
+
+    const {
+        printableW,
+        printableH,
+        effOx: effectiveOverlapX,
+        effOy: effectiveOverlapY,
+        stepX,
+        stepY,
+        totalW,
+        totalH,
+    } = metrics;
+
     const posterRatio = totalW / totalH;
 
     // Virtual full-image placement in assembled poster mm coordinates
     let placedW, placedH, placedX, placedY;
-    // Also virtual source window for cover vs contain
     let cropSrcX = 0;
     let cropSrcY = 0;
     let cropSrcW = safeImgW;
     let cropSrcH = safeImgH;
 
-    if (fitMode === 'cover') {
+    if (normalizedFitMode === 'cover') {
         placedX = 0;
         placedY = 0;
         placedW = totalW;
@@ -271,12 +376,12 @@ export function computePosterLayout({
             cropSrcY = (safeImgH - cropSrcH) / 2;
         }
     } else {
-        // contain: never distort or crop; center inside totalW x totalH
+        // contain & proportional: never distort or crop
         if (imgRatio > posterRatio) {
             placedW = totalW;
             placedH = totalW / imgRatio;
             placedX = 0;
-            placedY = (totalH - placedH) / 2;
+            placedY = normalizedFitMode === 'proportional' ? 0 : (totalH - placedH) / 2;
         } else {
             placedH = totalH;
             placedW = totalH * imgRatio;
@@ -303,19 +408,31 @@ export function computePosterLayout({
             const iy1 = Math.min(tilePlaneY1, placedY + placedH);
 
             let srcRect = null;
+            let exactSrcRect = null;
             let destRectMm = null;
 
-            if (ix1 > ix0 + 0.01 && iy1 > iy0 + 0.01) {
-                // Normalized [0..1] inside placed image rect
-                const u0 = (ix0 - placedX) / placedW;
-                const v0 = (iy0 - placedY) / placedH;
-                const u1 = (ix1 - placedX) / placedW;
-                const v1 = (iy1 - placedY) / placedH;
+            if (ix1 > ix0 + 0.05 && iy1 > iy0 + 0.05) {
+                const u0 = clamp((ix0 - placedX) / placedW, 0, 1);
+                const v0 = clamp((iy0 - placedY) / placedH, 0, 1);
+                const u1 = clamp((ix1 - placedX) / placedW, 0, 1);
+                const v1 = clamp((iy1 - placedY) / placedH, 0, 1);
 
-                const px0 = clamp(Math.round(cropSrcX + u0 * cropSrcW), 0, safeImgW);
-                const py0 = clamp(Math.round(cropSrcY + v0 * cropSrcH), 0, safeImgH);
-                const px1 = clamp(Math.round(cropSrcX + u1 * cropSrcW), px0 + 1, safeImgW);
-                const py1 = clamp(Math.round(cropSrcY + v1 * cropSrcH), py0 + 1, safeImgH);
+                const esx0 = clamp(cropSrcX + u0 * cropSrcW, 0, safeImgW);
+                const esy0 = clamp(cropSrcY + v0 * cropSrcH, 0, safeImgH);
+                const esx1 = clamp(cropSrcX + u1 * cropSrcW, esx0, safeImgW);
+                const esy1 = clamp(cropSrcY + v1 * cropSrcH, esy0, safeImgH);
+
+                exactSrcRect = {
+                    sx: esx0,
+                    sy: esy0,
+                    sw: Math.max(1e-4, esx1 - esx0),
+                    sh: Math.max(1e-4, esy1 - esy0),
+                };
+
+                const px0 = clamp(Math.floor(esx0 + 1e-6), 0, Math.max(0, safeImgW - 1));
+                const py0 = clamp(Math.floor(esy0 + 1e-6), 0, Math.max(0, safeImgH - 1));
+                const px1 = clamp(Math.ceil(esx1 - 1e-6), Math.min(safeImgW, px0 + 1), safeImgW);
+                const py1 = clamp(Math.ceil(esy1 - 1e-6), Math.min(safeImgH, py0 + 1), safeImgH);
 
                 srcRect = {
                     sx: px0,
@@ -339,6 +456,7 @@ export function computePosterLayout({
                 totalPages,
                 label: `F${r + 1}-C${c + 1} · Pág ${pageNum}/${totalPages}`,
                 srcRect,
+                exactSrcRect,
                 destRectMm,
                 printableRectMm: { x: margin, y: margin, w: printableW, h: printableH },
                 overlapGuides: {
@@ -370,9 +488,11 @@ export function computePosterLayout({
         sheetH,
         orientation: resolvedOrient,
         paperKey,
-        fitMode,
+        fitMode: normalizedFitMode,
         cols: cCount,
         rows: rCount,
+        requestedCols,
+        requestedRows,
         totalPages,
         marginMm: margin,
         overlapMm: effectiveOverlapX,
@@ -383,6 +503,8 @@ export function computePosterLayout({
         totalH,
         assembledWidthCm: Math.round((totalW / 10) * 10) / 10,
         assembledHeightCm: Math.round((totalH / 10) * 10) / 10,
+        imageWidthCm: Math.round((placedW / 10) * 10) / 10,
+        imageHeightCm: Math.round((placedH / 10) * 10) / 10,
         placedRectMm: { x: placedX, y: placedY, w: placedW, h: placedH },
         cropSrcRect: { sx: cropSrcX, sy: cropSrcY, sw: cropSrcW, sh: cropSrcH },
         tiles,

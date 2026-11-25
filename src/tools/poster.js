@@ -15,9 +15,12 @@ const MAX_PREVIEW_CANVAS_PX = 760;
 const MAX_PREVIEW_SOURCE_PX = 1100;
 const MAX_PDF_RENDER_DIM = 4096;
 const MAX_PDF_RENDER_PIXELS = 16_000_000;
-const TARGET_PDF_RENDER_SCALE = 2.5;
-const MAX_EXPORT_TILE_DIM = 4500;
-const POSTER_MARGIN_MM = 8;
+const TARGET_PDF_RENDER_SCALE = 4.0;
+const MAX_EXPORT_TILE_DIM = 3600;
+const MIN_PRINT_PX_PER_MM = 7.0;
+const MAX_PRINT_PX_PER_MM = 11.81;
+const MAX_TOTAL_EXPORT_PIXELS = 180_000_000;
+const DEFAULT_POSTER_MARGIN_MM = 8;
 
 const POSTER_PRESETS = Object.freeze({
     original: Object.freeze({ brightness: 0, contrast: 0, saturation: 100, temperature: 0, cleanMode: false }),
@@ -49,6 +52,7 @@ const state = {
     /** @type {Array<{ id: number, name: string, displayName: string, image: HTMLImageElement, width: number, height: number, objectUrl: string | null }>} */
     items: [],
     currentIndex: 0,
+    previewMode: 'assembled',
     filters: {
         preset: 'original',
         brightness: 0,
@@ -112,10 +116,13 @@ function getDom() {
         cols: document.getElementById('poster-cols'),
         rows: document.getElementById('poster-rows'),
         quality: document.getElementById('poster-quality'),
+        margin: document.getElementById('poster-margin'),
         overlap: document.getElementById('poster-overlap'),
         overlapVal: document.getElementById('poster-overlap-val'),
         cropMarks: document.getElementById('poster-crop-marks'),
         tileLabels: document.getElementById('poster-tile-labels'),
+        viewAssembledBtn: document.getElementById('poster-view-assembled-btn'),
+        viewSheetsBtn: document.getElementById('poster-view-sheets-btn'),
         brightness: document.getElementById('poster-brightness'),
         brightnessVal: document.getElementById('poster-brightness-val'),
         contrast: document.getElementById('poster-contrast'),
@@ -159,10 +166,13 @@ function readPosterSettings() {
     const paperKey = PAPER_SIZES[rawPaper] ? rawPaper : 'letter';
     const rawOrient = dom.orientation?.value || 'auto';
     const orientation = rawOrient === 'p' || rawOrient === 'l' ? rawOrient : 'auto';
-    const fitMode = dom.fitMode?.value === 'cover' ? 'cover' : 'contain';
-    const cols = clamp(Math.round(toFiniteNumber(dom.cols?.value, 2)), 1, 10);
-    const rows = clamp(Math.round(toFiniteNumber(dom.rows?.value, 2)), 1, 10);
+    const rawFit = dom.fitMode?.value || 'contain';
+    const fitMode =
+        rawFit === 'cover' || rawFit === 'proportional' ? rawFit : 'contain';
+    const cols = clamp(Math.round(toFiniteNumber(dom.cols?.value, 2)), 1, 15);
+    const rows = clamp(Math.round(toFiniteNumber(dom.rows?.value, 2)), 1, 15);
     const quality = clamp(toFiniteNumber(dom.quality?.value, 0.92), 0.5, 1.0);
+    const marginMm = clamp(toFiniteNumber(dom.margin?.value, DEFAULT_POSTER_MARGIN_MM), 0, 20);
     const overlapMm = clamp(toFiniteNumber(dom.overlap?.value, 5), 0, 15);
     const showCropMarks = dom.cropMarks ? Boolean(dom.cropMarks.checked) : false;
     const showTileLabels = dom.tileLabels ? Boolean(dom.tileLabels.checked) : false;
@@ -175,7 +185,7 @@ function readPosterSettings() {
         rows,
         quality,
         overlapMm,
-        marginMm: POSTER_MARGIN_MM,
+        marginMm,
         showCropMarks,
         showTileLabels,
     };
@@ -498,101 +508,145 @@ function fillRoundedRect(ctx, x, y, w, h, r) {
 }
 
 /**
- * Draws the live assembled poster preview and updates all summary statistics.
+ * Syncs view mode segmented tab buttons (`assembled` vs `sheets`).
  */
-export function renderPosterPreview() {
+function syncPreviewModeUi() {
     const dom = getDom();
-    const item = state.items[state.currentIndex];
-    if (!item || !dom.previewCanvas) return;
+    const isSheets = state.previewMode === 'sheets';
+    if (dom.viewAssembledBtn) {
+        dom.viewAssembledBtn.classList.toggle('is-active', !isSheets);
+        dom.viewAssembledBtn.setAttribute('aria-selected', String(!isSheets));
+    }
+    if (dom.viewSheetsBtn) {
+        dom.viewSheetsBtn.classList.toggle('is-active', isSheets);
+        dom.viewSheetsBtn.setAttribute('aria-selected', String(isSheets));
+    }
+}
 
-    const settings = readPosterSettings();
-    if (dom.overlapVal) {
-        dom.overlapVal.textContent = `${settings.overlapMm} mm`;
+/**
+ * Draws a centered label pill inside a tile on a 2D canvas.
+ */
+function drawCanvasTileBadge(ctx, text, bx, by, maxBadgeW, fontSize, compactPad) {
+    const padX = compactPad ? 4 : 6;
+    const badgeH = fontSize + 7;
+    const metrics = ctx.measureText(text);
+    const badgeW = Math.min(maxBadgeW, metrics.width + padX * 2);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+    fillRoundedRect(ctx, bx, by, badgeW, badgeH, 4);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(bx + 2, by, Math.max(1, badgeW - 4), badgeH);
+    ctx.clip();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, bx + padX, by + badgeH / 2 + 0.5);
+    ctx.restore();
+}
+
+/**
+ * Draws crisp outer-margin corner ticks and overlap alignment ticks on a Canvas 2D sheet.
+ */
+function drawCanvasMarginMarks(ctx, { ox, oy, x0, y0, x1, y1, margin, cutEdges, glueEdges, overlapGuides, pxPerMm }) {
+    if (margin < 3) return;
+    const gap = Math.min(1.0, margin * 0.14);
+    const len = Math.max(2.0, Math.min(4.2, margin - gap - 0.5));
+    const sx0 = (ox + x0) * pxPerMm;
+    const sy0 = (oy + y0) * pxPerMm;
+    const sx1 = (ox + x1) * pxPerMm;
+    const sy1 = (oy + y1) * pxPerMm;
+    const gapPx = gap * pxPerMm;
+    const lenPx = len * pxPerMm;
+
+    ctx.save();
+    ctx.lineWidth = Math.max(1, 0.28 * pxPerMm);
+    const cutColor = '#dc2626';
+    const slateColor = '#64748b';
+    const glueColor = '#0284c7';
+
+    // Corner crop ticks strictly in the outer margin
+    const drawCornerTick = (cx, cy, dx, dy, color) => {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * gapPx, cy + dy * gapPx);
+        ctx.lineTo(cx + dx * (gapPx + lenPx), cy + dy * (gapPx + lenPx));
+        ctx.stroke();
+    };
+
+    for (const [vx, isCutV] of [[sx0, cutEdges.left], [sx1, cutEdges.right]]) {
+        const col = isCutV ? cutColor : slateColor;
+        drawCornerTick(vx, sy0, 0, -1, col);
+        drawCornerTick(vx, sy1, 0, 1, col);
+    }
+    for (const [hy, isCutH] of [[sy0, cutEdges.top], [sy1, cutEdges.bottom]]) {
+        const col = isCutH ? cutColor : slateColor;
+        drawCornerTick(sx0, hy, -1, 0, col);
+        drawCornerTick(sx1, hy, 1, 0, col);
     }
 
-    const layout = computePosterLayout({
-        imgW: item.width,
-        imgH: item.height,
-        cols: settings.cols,
-        rows: settings.rows,
-        paperKey: settings.paperKey,
-        orientation: settings.orientation,
-        fitMode: settings.fitMode,
-        overlapMm: settings.overlapMm,
-        marginMm: settings.marginMm,
-    });
+    // Overlap alignment ticks in outer margin
+    if (glueEdges.left && typeof overlapGuides.left === 'number') {
+        const gx = (ox + overlapGuides.left) * pxPerMm;
+        drawCornerTick(gx, sy0, 0, -1, glueColor);
+        drawCornerTick(gx, sy1, 0, 1, glueColor);
+    }
+    if (glueEdges.top && typeof overlapGuides.top === 'number') {
+        const gy = (oy + overlapGuides.top) * pxPerMm;
+        drawCornerTick(sx0, gy, -1, 0, glueColor);
+        drawCornerTick(sx1, gy, 1, 0, glueColor);
+    }
+    ctx.restore();
+}
 
-    // Update live stats
-    const fileCount = state.items.length;
-    if (dom.statPages) {
-        dom.statPages.textContent =
-            fileCount > 1
-                ? `${layout.totalPages} × ${fileCount} = ${layout.totalPages * fileCount}`
-                : String(layout.totalPages);
-    }
-    if (dom.statGrid) {
-        dom.statGrid.textContent = `${layout.cols} × ${layout.rows}`;
-    }
-    if (dom.statDims) {
-        dom.statDims.textContent = `${layout.assembledWidthCm} × ${layout.assembledHeightCm} cm`;
-    }
-    if (dom.statPaper) {
-        dom.statPaper.textContent = formatPaperStat(layout.paperKey, layout.orientation);
-    }
-    if (dom.previewCaption) {
-        const prefix = fileCount > 1 ? `${state.currentIndex + 1}/${fileCount} · ` : '';
-        const overlapText =
-            layout.overlapMm > 0 || layout.overlapYMm > 0
-                ? msg(` · Solape ${settings.overlapMm} mm`, ` · Overlap ${settings.overlapMm} mm`)
-                : '';
-        dom.previewCaption.textContent = `${prefix}${item.displayName} (${item.width}×${item.height} px)${overlapText}`;
-    }
-
-    // Scale assembled poster world cleanly to <= 760px
+/**
+ * Draws the assembled poster live preview onto the preview canvas.
+ */
+function drawAssembledPreview(canvas, layout, previewBitmap, item, settings) {
     const margin = layout.marginMm;
     const worldW = layout.totalW + margin * 2;
     const worldH = layout.totalH + margin * 2;
     const pxPerMm = Math.min(MAX_PREVIEW_CANVAS_PX / worldW, MAX_PREVIEW_CANVAS_PX / worldH);
 
-    const canvas = dom.previewCanvas;
     canvas.width = Math.max(1, Math.round(worldW * pxPerMm));
     canvas.height = Math.max(1, Math.round(worldH * pxPerMm));
 
     const ctx = canvas.getContext('2d');
-    const previewBitmap = getRetouchedPreviewBitmap(item);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     const bmpScaleX = previewBitmap.width / item.width;
     const bmpScaleY = previewBitmap.height / item.height;
-
     const stepX = layout.printableW - layout.overlapMm;
     const stepY = layout.printableH - layout.overlapYMm;
 
-    // 1. Paper backdrop
+    // 1. Outer trim margin backdrop + white printable canvas
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (margin > 0) {
+        ctx.fillStyle = 'rgba(241, 245, 249, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(
+            margin * pxPerMm,
+            margin * pxPerMm,
+            layout.totalW * pxPerMm,
+            layout.totalH * pxPerMm
+        );
+    }
 
-    // Subtle tint on outer trim margin frame
-    ctx.fillStyle = 'rgba(241, 245, 249, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(
-        margin * pxPerMm,
-        margin * pxPerMm,
-        layout.totalW * pxPerMm,
-        layout.totalH * pxPerMm
-    );
-
-    // 2. Draw each tile's exact distortion-free image slice
+    // 2. Draw each tile's exact continuous image slice
     for (const tile of layout.tiles) {
-        if (!tile.srcRect || !tile.destRectMm) continue;
+        const src = tile.exactSrcRect || tile.srcRect;
+        if (!src || !tile.destRectMm) continue;
         const dx = (tile.col * stepX + tile.destRectMm.x) * pxPerMm;
         const dy = (tile.row * stepY + tile.destRectMm.y) * pxPerMm;
         const dw = tile.destRectMm.w * pxPerMm;
         const dh = tile.destRectMm.h * pxPerMm;
 
-        const sx = tile.srcRect.sx * bmpScaleX;
-        const sy = tile.srcRect.sy * bmpScaleY;
-        const sw = Math.max(0.5, tile.srcRect.sw * bmpScaleX);
-        const sh = Math.max(0.5, tile.srcRect.sh * bmpScaleY);
+        const sx = src.sx * bmpScaleX;
+        const sy = src.sy * bmpScaleY;
+        const sw = Math.max(0.25, src.sw * bmpScaleX);
+        const sh = Math.max(0.25, src.sh * bmpScaleY);
 
         ctx.drawImage(previewBitmap, sx, sy, sw, sh, dx, dy, dw, dh);
     }
@@ -621,7 +675,7 @@ export function renderPosterPreview() {
 
     // 4. Draw each sheet's subtle printable boundary
     ctx.save();
-    ctx.strokeStyle = 'rgba(30, 41, 59, 0.28)';
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.30)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     for (const tile of layout.tiles) {
@@ -633,7 +687,7 @@ export function renderPosterPreview() {
     }
     ctx.restore();
 
-    // 5. Draw clean red scissor badges on cut seams (without heavy cut lines or corner ticks)
+    // 5. Draw clean red scissor badges on cut seams
     if (settings.showCropMarks && (layout.cols > 1 || layout.rows > 1)) {
         const drawPreviewScissorsBadge = (cxPx, cyPx, isVertical) => {
             const badgeScale = Math.max(2.2, Math.min(3.3, pxPerMm * 1.15));
@@ -681,14 +735,6 @@ export function renderPosterPreview() {
         }
     }
 
-    if (dom.cutLegend) {
-        dom.cutLegend.classList.toggle('hidden', !(settings.showCropMarks && layout.totalPages > 1));
-        const glueLegendItem = dom.cutLegend.querySelector('[data-i18n="poster_legend_glue"]')?.closest('.poster-legend-item');
-        if (glueLegendItem) {
-            glueLegendItem.classList.toggle('hidden', layout.overlapMm <= 0 && layout.overlapYMm <= 0);
-        }
-    }
-
     // 6. Draw subtle tile badge if enabled
     if (settings.showTileLabels) {
         ctx.save();
@@ -709,27 +755,206 @@ export function renderPosterPreview() {
                 : compact
                     ? `F${tile.row + 1}-C${tile.col + 1}`
                     : tile.label;
-
-            const padX = micro ? 4 : 6;
-            const badgeH = fontSize + 7;
-            const maxBadgeW = Math.max(16, tilePxW - 8);
-            const metrics = ctx.measureText(text);
-            const badgeW = Math.min(maxBadgeW, metrics.width + padX * 2);
-            const bx = px + 4;
-            const by = py + 4;
-
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.74)';
-            fillRoundedRect(ctx, bx, by, badgeW, badgeH, 4);
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(bx + 2, by, Math.max(1, badgeW - 4), badgeH);
-            ctx.clip();
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, bx + padX, by + badgeH / 2 + 0.5);
-            ctx.restore();
+            drawCanvasTileBadge(ctx, text, px + 4, py + 4, Math.max(16, tilePxW - 8), fontSize, micro);
         }
         ctx.restore();
+    }
+}
+
+/**
+ * Draws each individual PDF sheet side-by-side so the user can inspect margins,
+ * overlap tabs, and cut/glue alignment marks 1:1 before printing.
+ */
+function drawSheetsPreview(canvas, layout, previewBitmap, item, settings) {
+    const gapMm = Math.max(8, Math.min(layout.sheetW, layout.sheetH) * 0.05);
+    const worldW = layout.cols * layout.sheetW + (layout.cols + 1) * gapMm;
+    const worldH = layout.rows * layout.sheetH + (layout.rows + 1) * gapMm;
+    const pxPerMm = Math.min(MAX_PREVIEW_CANVAS_PX / worldW, MAX_PREVIEW_CANVAS_PX / worldH);
+
+    canvas.width = Math.max(1, Math.round(worldW * pxPerMm));
+    canvas.height = Math.max(1, Math.round(worldH * pxPerMm));
+
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const bmpScaleX = previewBitmap.width / item.width;
+    const bmpScaleY = previewBitmap.height / item.height;
+    const margin = layout.marginMm;
+
+    for (const tile of layout.tiles) {
+        const ox = gapMm + tile.col * (layout.sheetW + gapMm);
+        const oy = gapMm + tile.row * (layout.sheetH + gapMm);
+        const sxPx = ox * pxPerMm;
+        const syPx = oy * pxPerMm;
+        const swPx = layout.sheetW * pxPerMm;
+        const shPx = layout.sheetH * pxPerMm;
+
+        // Sheet card
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(sxPx, syPx, swPx, shPx);
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sxPx, syPx, swPx, shPx);
+
+        // Tile image slice
+        const src = tile.exactSrcRect || tile.srcRect;
+        if (src && tile.destRectMm) {
+            ctx.drawImage(
+                previewBitmap,
+                src.sx * bmpScaleX,
+                src.sy * bmpScaleY,
+                Math.max(0.25, src.sw * bmpScaleX),
+                Math.max(0.25, src.sh * bmpScaleY),
+                (ox + tile.destRectMm.x) * pxPerMm,
+                (oy + tile.destRectMm.y) * pxPerMm,
+                tile.destRectMm.w * pxPerMm,
+                tile.destRectMm.h * pxPerMm
+            );
+        }
+
+        const { x: x0, y: y0, w: pw, h: ph } = tile.printableRectMm;
+        const x1 = x0 + pw;
+        const y1 = y0 + ph;
+
+        // Overlap strip indicator on glue edges
+        if (tile.glueEdges?.left && layout.overlapMm > 0) {
+            ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
+            ctx.fillRect((ox + x0) * pxPerMm, (oy + y0) * pxPerMm, layout.overlapMm * pxPerMm, ph * pxPerMm);
+        }
+        if (tile.glueEdges?.top && layout.overlapYMm > 0) {
+            ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
+            ctx.fillRect((ox + x0) * pxPerMm, (oy + y0) * pxPerMm, pw * pxPerMm, layout.overlapYMm * pxPerMm);
+        }
+
+        // Subtle printable boundary
+        if (margin > 0) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.28)';
+            ctx.lineWidth = 0.75;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect((ox + x0) * pxPerMm, (oy + y0) * pxPerMm, pw * pxPerMm, ph * pxPerMm);
+            ctx.restore();
+        }
+
+        // Margin crop & glue registration ticks
+        if (settings.showCropMarks && margin >= 3) {
+            drawCanvasMarginMarks(ctx, {
+                ox,
+                oy,
+                x0,
+                y0,
+                x1,
+                y1,
+                margin,
+                cutEdges: tile.cutEdges || {},
+                glueEdges: tile.glueEdges || {},
+                overlapGuides: tile.overlapGuides || {},
+                pxPerMm,
+            });
+        }
+
+        if (settings.showTileLabels) {
+            ctx.save();
+            const tilePxW = layout.sheetW * pxPerMm;
+            const tilePxH = layout.sheetH * pxPerMm;
+            const micro = tilePxW < 64 || tilePxH < 48;
+            const fontSize = micro ? 7.5 : 9;
+            ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'left';
+            const text = micro ? `${tile.pageNum}` : `F${tile.row + 1}-C${tile.col + 1}`;
+            drawCanvasTileBadge(ctx, text, sxPx + 4, syPx + 4, Math.max(16, tilePxW - 8), fontSize, micro);
+            ctx.restore();
+        }
+    }
+}
+
+/**
+ * Draws the live poster preview and updates all summary statistics.
+ */
+export function renderPosterPreview() {
+    const dom = getDom();
+    const item = state.items[state.currentIndex];
+    if (!item || !dom.previewCanvas) return;
+
+    const settings = readPosterSettings();
+    if (dom.overlapVal) {
+        dom.overlapVal.textContent = `${settings.overlapMm} mm`;
+    }
+
+    const layout = computePosterLayout({
+        imgW: item.width,
+        imgH: item.height,
+        cols: settings.cols,
+        rows: settings.rows,
+        paperKey: settings.paperKey,
+        orientation: settings.orientation,
+        fitMode: settings.fitMode,
+        overlapMm: settings.overlapMm,
+        marginMm: settings.marginMm,
+    });
+
+    if (dom.rows) {
+        const isProp = layout.fitMode === 'proportional';
+        dom.rows.disabled = isProp;
+        if (isProp) {
+            dom.rows.value = String(layout.rows);
+        }
+    }
+
+    syncPreviewModeUi();
+
+    // Update live stats
+    const fileCount = state.items.length;
+    if (dom.statPages) {
+        dom.statPages.textContent =
+            fileCount > 1
+                ? `${layout.totalPages} × ${fileCount} = ${layout.totalPages * fileCount}`
+                : String(layout.totalPages);
+    }
+    if (dom.statGrid) {
+        dom.statGrid.textContent = `${layout.cols} × ${layout.rows}`;
+    }
+    if (dom.statDims) {
+        dom.statDims.textContent = `${layout.imageWidthCm} × ${layout.imageHeightCm} cm`;
+    }
+    if (dom.statPaper) {
+        dom.statPaper.textContent = formatPaperStat(layout.paperKey, layout.orientation);
+    }
+    if (dom.previewCaption) {
+        const prefix = fileCount > 1 ? `${state.currentIndex + 1}/${fileCount} · ` : '';
+        const overlapText =
+            layout.overlapMm > 0 || layout.overlapYMm > 0
+                ? msg(` · Solape ${settings.overlapMm} mm`, ` · Overlap ${settings.overlapMm} mm`)
+                : '';
+        const trimmedNote =
+            layout.fitMode === 'contain' &&
+            (layout.cols < layout.requestedCols || layout.rows < layout.requestedRows)
+                ? msg(
+                      ` · Optimizado a ${layout.cols}×${layout.rows} (sin hojas vacías)`,
+                      ` · Trimmed to ${layout.cols}×${layout.rows} (no blank sheets)`
+                  )
+                : '';
+        dom.previewCaption.textContent = `${prefix}${item.displayName} (${item.width}×${item.height} px)${overlapText}${trimmedNote}`;
+    }
+
+    const previewBitmap = getRetouchedPreviewBitmap(item);
+    if (state.previewMode === 'sheets') {
+        drawSheetsPreview(dom.previewCanvas, layout, previewBitmap, item, settings);
+    } else {
+        drawAssembledPreview(dom.previewCanvas, layout, previewBitmap, item, settings);
+    }
+
+    if (dom.cutLegend) {
+        dom.cutLegend.classList.toggle('hidden', !(settings.showCropMarks && layout.totalPages > 1));
+        const glueLegendItem = dom.cutLegend.querySelector('[data-i18n="poster_legend_glue"]')?.closest('.poster-legend-item');
+        if (glueLegendItem) {
+            glueLegendItem.classList.toggle('hidden', layout.overlapMm <= 0 && layout.overlapYMm <= 0);
+        }
     }
 }
 
@@ -998,22 +1223,24 @@ async function handlePosterFiles(files) {
 
 const POSTER_CUT_RGB = Object.freeze({ r: 220, g: 38, b: 38 });
 const POSTER_GLUE_RGB = Object.freeze({ r: 2, g: 132, b: 199 });
+const POSTER_TICK_RGB = Object.freeze({ r: 100, g: 116, b: 139 });
 
 /**
- * Draws only the red "RECORTAR AQUÍ" / "CUT HERE" indicator with vector scissors
- * in the outer margin of a cut edge (no long cut lines or corner ticks).
+ * Draws the red "RECORTAR AQUÍ" / "CUT HERE" indicator with vector scissors
+ * strictly inside the outer margin of a cut edge.
  */
 function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side }) {
     const isVertical = side === 'left' || side === 'right';
+    const compact = margin < 6.5;
     const label = msg('RECORTAR AQUÍ', 'CUT HERE');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.2);
+    doc.setFontSize(compact ? 5.6 : 7.0);
     doc.setTextColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
 
     const textW = doc.getTextWidth(label);
-    const iconScale = 0.85;
-    const iconW = 3.4;
-    const gap = 1.5;
+    const iconScale = compact ? 0.65 : 0.82;
+    const iconW = 4.0 * iconScale;
+    const gap = compact ? 1.1 : 1.5;
     const groupW = iconW + gap + textW;
 
     if (isVertical) {
@@ -1022,46 +1249,48 @@ function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side }) {
         const iconCy = cy + groupW / 2 - iconW / 2;
         drawScissorsToPdf(doc, cx, iconCy, iconScale, true, POSTER_CUT_RGB);
         const textStartY = cy + groupW / 2 - iconW - gap;
-        doc.text(label, cx + 0.85, textStartY, { angle: 90 });
+        doc.text(label, cx + (compact ? 0.65 : 0.85), textStartY, { angle: 90 });
     } else {
         const cx = (x0 + x1) / 2;
         const cy = side === 'bottom' ? y1 + margin * 0.56 : y0 - margin * 0.44;
         const iconCx = cx - groupW / 2 + iconW / 2;
         drawScissorsToPdf(doc, iconCx, cy, iconScale, false, POSTER_CUT_RGB);
         const textStartX = cx - groupW / 2 + iconW + gap;
-        doc.text(label, textStartX, cy + 0.85);
+        doc.text(label, textStartX, cy + (compact ? 0.65 : 0.85));
     }
 }
 
 /**
- * Draws only the blue "PEGAR AQUÍ" / "GLUE HERE" indicator in the margin
- * of a glue overlap edge (no long guide lines or corner ticks).
+ * Draws the blue "PEGAR AQUÍ" / "GLUE HERE" indicator strictly inside the outer margin
+ * of a glue overlap edge.
  */
 function drawPdfGlueEdge(doc, { x0, y0, x1, y1, margin, side, neighborLabel }) {
     const isVertical = side === 'left';
+    const compact = margin < 6.5;
     const label = msg(
         `PEGAR AQUÍ · ${neighborLabel}`,
         `GLUE HERE · ${neighborLabel}`
     );
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.8);
+    doc.setFontSize(compact ? 5.4 : 6.8);
     doc.setTextColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
     const textW = doc.getTextWidth(label);
 
     if (isVertical) {
         const cx = x0 - margin * 0.46;
         const cy = (y0 + y1) / 2;
-        doc.text(label, cx + 0.8, cy + textW / 2, { angle: 90 });
+        doc.text(label, cx + (compact ? 0.6 : 0.8), cy + textW / 2, { angle: 90 });
     } else {
         const cx = (x0 + x1) / 2;
         const cy = y0 - margin * 0.44;
-        doc.text(label, cx - textW / 2, cy + 0.8);
+        doc.text(label, cx - textW / 2, cy + (compact ? 0.6 : 0.8));
     }
 }
 
 /**
- * Draws clean red cut labels (✂ RECORTAR AQUÍ) and blue glue labels (PEGAR AQUÍ)
- * without long cut lines, corner ticks, or colliding edge summaries, plus optional tile labels.
+ * Draws outer-margin-only registration ticks, overlap alignment pointers,
+ * red cut labels (✂ RECORTAR AQUÍ), blue glue labels (PEGAR AQUÍ), and optional tile labels.
+ * Never draws lines inside the printed image area.
  *
  * @param {object} doc jsPDF instance
  * @param {object} layout Computed poster layout
@@ -1073,10 +1302,30 @@ function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabe
     const x1 = x0 + pw;
     const y1 = y0 + ph;
     const margin = layout.marginMm;
-    const bottomLabelY = Math.min(layout.sheetH - 1.8, y1 + Math.max(3.6, margin * 0.58));
+    const hasMarginSpace = margin >= 3;
+    const bottomLabelY = Math.min(layout.sheetH - 1.5, y1 + Math.max(3.0, margin * 0.58));
 
-    if (showCropMarks) {
+    if (showCropMarks && hasMarginSpace) {
+        const tickGap = Math.min(1.0, margin * 0.14);
+        const tickLen = Math.max(2.0, Math.min(4.2, margin - tickGap - 0.5));
+        const hasDash = typeof doc.setLineDashPattern === 'function';
+        if (hasDash) doc.setLineDashPattern([], 0);
+        doc.setLineWidth(0.25);
+
         const cut = tile.cutEdges || {};
+        for (const [vx, isCutV] of [[x0, cut.left], [x1, cut.right]]) {
+            const c = isCutV ? POSTER_CUT_RGB : POSTER_TICK_RGB;
+            doc.setDrawColor(c.r, c.g, c.b);
+            doc.line(vx, y0 - tickGap, vx, y0 - tickGap - tickLen);
+            doc.line(vx, y1 + tickGap, vx, y1 + tickGap + tickLen);
+        }
+        for (const [hy, isCutH] of [[y0, cut.top], [y1, cut.bottom]]) {
+            const c = isCutH ? POSTER_CUT_RGB : POSTER_TICK_RGB;
+            doc.setDrawColor(c.r, c.g, c.b);
+            doc.line(x0 - tickGap, hy, x0 - tickGap - tickLen, hy);
+            doc.line(x1 + tickGap, hy, x1 + tickGap + tickLen, hy);
+        }
+
         for (const side of ['top', 'right', 'bottom', 'left']) {
             if (cut[side]) {
                 drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side });
@@ -1084,7 +1333,18 @@ function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabe
         }
 
         const glue = tile.glueEdges || {};
+        const guides = tile.overlapGuides || {};
         if (glue.left) {
+            if (typeof guides.left === 'number') {
+                const gx = guides.left;
+                doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                doc.setFillColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                doc.setLineWidth(0.3);
+                doc.line(gx, y0 - tickGap, gx, y0 - tickGap - tickLen);
+                doc.line(gx, y1 + tickGap, gx, y1 + tickGap + tickLen);
+                doc.triangle(gx, y0 - tickGap - 0.1, gx - 0.85, y0 - tickGap - 1.5, gx + 0.85, y0 - tickGap - 1.5, 'F');
+                doc.triangle(gx, y1 + tickGap + 0.1, gx - 0.85, y1 + tickGap + 1.5, gx + 0.85, y1 + tickGap + 1.5, 'F');
+            }
             drawPdfGlueEdge(doc, {
                 x0,
                 y0,
@@ -1096,6 +1356,16 @@ function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabe
             });
         }
         if (glue.top) {
+            if (typeof guides.top === 'number') {
+                const gy = guides.top;
+                doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                doc.setFillColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                doc.setLineWidth(0.3);
+                doc.line(x0 - tickGap, gy, x0 - tickGap - tickLen, gy);
+                doc.line(x1 + tickGap, gy, x1 + tickGap + tickLen, gy);
+                doc.triangle(x0 - tickGap - 0.1, gy, x0 - tickGap - 1.5, gy - 0.85, x0 - tickGap - 1.5, gy + 0.85, 'F');
+                doc.triangle(x1 + tickGap + 0.1, gy, x1 + tickGap + 1.5, gy - 0.85, x1 + tickGap + 1.5, gy + 0.85, 'F');
+            }
             drawPdfGlueEdge(doc, {
                 x0,
                 y0,
@@ -1109,17 +1379,62 @@ function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabe
     }
 
     if (showTileLabels) {
-        const labelX = Math.max(x0 + 2, x1 - 3);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(tile.label, labelX, bottomLabelY, { align: 'right' });
+        if (hasMarginSpace) {
+            const labelX = Math.max(x0 + 2, x1 - 2);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(margin < 6.5 ? 6.2 : 7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text(tile.label, labelX, bottomLabelY, { align: 'right' });
+        } else {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            const txtW = doc.getTextWidth(tile.label);
+            const bx = Math.max(2, layout.sheetW - txtW - 7);
+            const by = Math.max(2, layout.sheetH - 7);
+            doc.setFillColor(15, 23, 42);
+            doc.roundedRect(bx, by, txtW + 4, 4.8, 1, 1, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text(tile.label, bx + 2, by + 3.4);
+        }
     }
 }
 
 /**
+ * Computes a consistent, high-DPI print pixel-per-mm density across all tiles
+ * of a poster layout, upscaling low-res sources cleanly to avoid JPEG macroblocks
+ * and capping huge multi-page posters within safe browser memory limits.
+ *
+ * @param {object} layout
+ * @returns {number}
+ */
+function computeExportPxPerMm(layout) {
+    const placedW = Math.max(1, layout.placedRectMm?.w || layout.totalW);
+    const nativePxPerMm = (layout.cropSrcRect?.sw || 1) / placedW;
+    let pxPerMm = clamp(nativePxPerMm, MIN_PRINT_PX_PER_MM, MAX_PRINT_PX_PER_MM);
+
+    const activeTiles = layout.tiles.filter((t) => t.destRectMm && (t.exactSrcRect || t.srcRect));
+    if (activeTiles.length > 0) {
+        const maxTileMm = Math.max(
+            1,
+            ...activeTiles.map((t) => Math.max(t.destRectMm.w, t.destRectMm.h))
+        );
+        pxPerMm = Math.min(pxPerMm, MAX_EXPORT_TILE_DIM / maxTileMm);
+
+        const totalAreaMm2 = activeTiles.reduce(
+            (sum, t) => sum + t.destRectMm.w * t.destRectMm.h,
+            0
+        );
+        if (totalAreaMm2 > 0) {
+            pxPerMm = Math.min(pxPerMm, Math.sqrt(MAX_TOTAL_EXPORT_PIXELS / totalAreaMm2));
+        }
+    }
+
+    return Math.max(1.5, pxPerMm);
+}
+
+/**
  * Generates the multi-page poster PDF across all loaded items using jsPDF,
- * applying the shared retouching pipeline to every tile before JPEG embedding.
+ * applying exact sub-pixel cropping, high-DPI print resampling, and shared retouching.
  *
  * @param {object} [options]
  * @param {boolean} [options.forPrint=false]
@@ -1153,7 +1468,12 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
         })
     );
 
-    const totalExportedPages = layouts.reduce((acc, l) => acc + l.totalPages, 0);
+    const exportTilesByItem = layouts.map((layout) => {
+        const nonEmpty = layout.tiles.filter((tile) => (tile.exactSrcRect || tile.srcRect) && tile.destRectMm);
+        return nonEmpty.length > 0 ? nonEmpty : layout.tiles.slice(0, 1);
+    });
+
+    const totalExportedPages = exportTilesByItem.reduce((acc, list) => acc + list.length, 0);
     if (totalExportedPages <= 0) {
         ToastManager.warning(t('toast_no_pages'));
         return null;
@@ -1175,6 +1495,7 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
 
     const tileCanvas = document.createElement('canvas');
     const tileCtx = tileCanvas.getContext('2d', { willReadFrequently: true });
+    const retouchCacheCanvas = document.createElement('canvas');
     const retouchNeeded = needsRetouch(state.filters);
 
     try {
@@ -1191,8 +1512,27 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
         for (let itemIdx = 0; itemIdx < state.items.length; itemIdx++) {
             const item = state.items[itemIdx];
             const layout = layouts[itemIdx];
+            const tilesToExport = exportTilesByItem[itemIdx];
+            const exportPxPerMm = computeExportPxPerMm(layout);
 
-            for (const tile of layout.tiles) {
+            // Fast consistent path: retouch source once when <= 4 MP so seams are identical
+            let sourceDrawable = item.image;
+            let preRetouched = false;
+            if (retouchNeeded && item.width * item.height <= 4_000_000) {
+                retouchCacheCanvas.width = item.width;
+                retouchCacheCanvas.height = item.height;
+                const rCtx = retouchCacheCanvas.getContext('2d', { willReadFrequently: true });
+                rCtx.fillStyle = '#ffffff';
+                rCtx.fillRect(0, 0, item.width, item.height);
+                rCtx.drawImage(item.image, 0, 0, item.width, item.height);
+                const fullImgData = rCtx.getImageData(0, 0, item.width, item.height);
+                applyRetouchToImageData(fullImgData, state.filters);
+                rCtx.putImageData(fullImgData, 0, 0);
+                sourceDrawable = retouchCacheCanvas;
+                preRetouched = true;
+            }
+
+            for (const tile of tilesToExport) {
                 if (signal.aborted) {
                     ToastManager.info(t('toast_cancelled'));
                     return null;
@@ -1207,32 +1547,30 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
                     detail: `${tile.label} (${processedPages + 1}/${totalExportedPages})`,
                 });
 
-                if (tile.srcRect && tile.destRectMm) {
-                    let tw = tile.srcRect.sw;
-                    let th = tile.srcRect.sh;
-                    if (tw > MAX_EXPORT_TILE_DIM || th > MAX_EXPORT_TILE_DIM) {
-                        const capScale = MAX_EXPORT_TILE_DIM / Math.max(tw, th);
-                        tw = Math.max(1, Math.round(tw * capScale));
-                        th = Math.max(1, Math.round(th * capScale));
-                    }
+                const src = tile.exactSrcRect || tile.srcRect;
+                if (src && tile.destRectMm) {
+                    const tw = Math.max(1, Math.round(tile.destRectMm.w * exportPxPerMm));
+                    const th = Math.max(1, Math.round(tile.destRectMm.h * exportPxPerMm));
 
                     tileCanvas.width = tw;
                     tileCanvas.height = th;
                     tileCtx.fillStyle = '#ffffff';
                     tileCtx.fillRect(0, 0, tw, th);
+                    tileCtx.imageSmoothingEnabled = true;
+                    tileCtx.imageSmoothingQuality = 'high';
                     tileCtx.drawImage(
-                        item.image,
-                        tile.srcRect.sx,
-                        tile.srcRect.sy,
-                        tile.srcRect.sw,
-                        tile.srcRect.sh,
+                        sourceDrawable,
+                        src.sx,
+                        src.sy,
+                        src.sw,
+                        src.sh,
                         0,
                         0,
                         tw,
                         th
                     );
 
-                    if (retouchNeeded) {
+                    if (retouchNeeded && !preRetouched) {
                         const imgData = tileCtx.getImageData(0, 0, tw, th);
                         applyRetouchToImageData(imgData, state.filters);
                         tileCtx.putImageData(imgData, 0, 0);
@@ -1256,6 +1594,11 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
 
                 processedPages += 1;
                 await yieldToUi();
+            }
+
+            if (preRetouched) {
+                retouchCacheCanvas.width = 0;
+                retouchCacheCanvas.height = 0;
             }
         }
 
@@ -1301,6 +1644,8 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
     } finally {
         tileCanvas.width = 0;
         tileCanvas.height = 0;
+        retouchCacheCanvas.width = 0;
+        retouchCacheCanvas.height = 0;
         closeProgressOnce();
         AppState.setBusy(false);
     }
@@ -1322,6 +1667,8 @@ function resetPoster() {
 
     state.items = [];
     state.currentIndex = 0;
+    state.previewMode = 'assembled';
+    syncPreviewModeUi();
 
     const dom = getDom();
     if (dom.fileInput) dom.fileInput.value = '';
@@ -1430,6 +1777,7 @@ export function initPosterTool() {
         dom.orientation,
         dom.fitMode,
         dom.quality,
+        dom.margin,
         dom.cropMarks,
         dom.tileLabels,
     ];
@@ -1437,11 +1785,23 @@ export function initPosterTool() {
         ctrl?.addEventListener('change', () => schedulePreviewRender());
     }
 
+    dom.viewAssembledBtn?.addEventListener('click', () => {
+        state.previewMode = 'assembled';
+        syncPreviewModeUi();
+        renderPosterPreview();
+    });
+
+    dom.viewSheetsBtn?.addEventListener('click', () => {
+        state.previewMode = 'sheets';
+        syncPreviewModeUi();
+        renderPosterPreview();
+    });
+
     for (const numInput of [dom.cols, dom.rows]) {
         if (!numInput) continue;
         numInput.addEventListener('input', () => schedulePreviewRender());
         numInput.addEventListener('change', () => {
-            const clamped = clamp(Math.round(toFiniteNumber(numInput.value, 2)), 1, 10);
+            const clamped = clamp(Math.round(toFiniteNumber(numInput.value, 2)), 1, 15);
             numInput.value = String(clamped);
             schedulePreviewRender();
         });

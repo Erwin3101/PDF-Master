@@ -328,15 +328,18 @@
                                                 </div>
                                             </div>
 
-                                            <div class="control-grid-3">
+                                            <div class="control-grid-2">
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-cols" data-i18n="poster_cols">Ancho (Hojas)</label>
-                                                    <input type="number" id="poster-cols" class="field-input" value="2" min="1" max="10">
+                                                    <input type="number" id="poster-cols" class="field-input" value="2" min="1" max="15">
                                                 </div>
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-rows" data-i18n="poster_rows">Alto (Hojas)</label>
-                                                    <input type="number" id="poster-rows" class="field-input" value="2" min="1" max="10">
+                                                    <input type="number" id="poster-rows" class="field-input" value="2" min="1" max="15">
                                                 </div>
+                                            </div>
+
+                                            <div class="control-grid-2">
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-quality" data-i18n="poster_quality">Calidad JPEG</label>
                                                     <select id="poster-quality" class="field-select">
@@ -345,12 +348,22 @@
                                                         <option value="0.96" data-i18n="poster_q_max">Máxima (96%)</option>
                                                     </select>
                                                 </div>
+                                                <div class="field-group">
+                                                    <label class="field-label" for="poster-margin" data-i18n="poster_margin">Margen de hoja</label>
+                                                    <select id="poster-margin" class="field-select">
+                                                        <option value="0" data-i18n="poster_margin_none">Sin margen (0 mm)</option>
+                                                        <option value="5" data-i18n="poster_margin_min">Mínimo (5 mm)</option>
+                                                        <option value="8" selected data-i18n="poster_margin_std">Estándar (8 mm)</option>
+                                                        <option value="10" data-i18n="poster_margin_wide">Amplio (10 mm)</option>
+                                                    </select>
+                                                </div>
                                             </div>
 
                                             <div class="field-group">
                                                 <label class="field-label" for="poster-fit-mode" data-i18n="poster_fit_mode">Modo de Encuadre</label>
                                                 <select id="poster-fit-mode" class="field-select">
                                                     <option value="contain" selected data-i18n="poster_fit_contain">Sin deformar (Imagen completa)</option>
+                                                    <option value="proportional" data-i18n="poster_fit_proportional">Proporcional al ancho (Alto auto)</option>
                                                     <option value="cover" data-i18n="poster_fit_cover">Llenar recortando (Cubre todas las hojas)</option>
                                                 </select>
                                             </div>
@@ -428,6 +441,18 @@
                                         </div>
 
                                         <div class="poster-stage">
+                                            <div class="poster-stage-toolbar">
+                                                <div class="segmented-tabs poster-view-tabs" role="tablist">
+                                                    <button type="button" id="poster-view-assembled-btn" class="segmented-tab is-active" data-poster-view="assembled" aria-selected="true">
+                                                        <i data-lucide="layout-template"></i>
+                                                        <span data-i18n="poster_view_assembled">Vista armado</span>
+                                                    </button>
+                                                    <button type="button" id="poster-view-sheets-btn" class="segmented-tab" data-poster-view="sheets" aria-selected="false">
+                                                        <i data-lucide="grid-2x2"></i>
+                                                        <span data-i18n="poster_view_sheets">Por hojas</span>
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <canvas id="poster-preview-canvas" class="poster-preview-canvas"></canvas>
                                             <div id="poster-cut-legend" class="poster-cut-legend hidden">
                                                 <span class="poster-legend-item">

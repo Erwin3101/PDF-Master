@@ -19,6 +19,17 @@
     min-height: 360px;
 }
 
+.poster-stage-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.poster-view-tabs {
+    max-width: 300px;
+}
+
 .poster-preview-canvas {
     display: block;
     max-width: 100%;
