@@ -619,9 +619,9 @@ export function renderPosterPreview() {
         }
     }
 
-    // 4. Draw each sheet's printable boundary & glue alignment lines
+    // 4. Draw each sheet's subtle printable boundary
     ctx.save();
-    ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.28)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     for (const tile of layout.tiles) {
@@ -633,104 +633,50 @@ export function renderPosterPreview() {
     }
     ctx.restore();
 
-    // 5. Draw clear cut lines (red + scissors) vs outer corner ticks
-    if (settings.showCropMarks) {
-        ctx.save();
-        ctx.strokeStyle = '#475569';
-        ctx.lineWidth = 1.2;
-        const tickArm = clamp(margin * pxPerMm * 0.65, 4, 9);
-
-        for (const tile of layout.tiles) {
-            const x0 = (margin + tile.col * stepX) * pxPerMm;
-            const y0 = (margin + tile.row * stepY) * pxPerMm;
-            const x1 = x0 + layout.printableW * pxPerMm;
-            const y1 = y0 + layout.printableH * pxPerMm;
-
-            ctx.beginPath();
-            ctx.moveTo(x0, y0 + tickArm);
-            ctx.lineTo(x0, y0);
-            ctx.lineTo(x0 + tickArm, y0);
-            ctx.moveTo(x1 - tickArm, y0);
-            ctx.lineTo(x1, y0);
-            ctx.lineTo(x1, y0 + tickArm);
-            ctx.moveTo(x0, y1 - tickArm);
-            ctx.lineTo(x0, y1);
-            ctx.lineTo(x0 + tickArm, y1);
-            ctx.moveTo(x1 - tickArm, y1);
-            ctx.lineTo(x1, y1);
-            ctx.lineTo(x1, y1 - tickArm);
-            ctx.stroke();
-        }
-        ctx.restore();
-
-        // Highlight the exact interior cut seams where sheets must be trimmed (red dashed + scissors)
-        if (layout.cols > 1 || layout.rows > 1) {
-            const drawPreviewScissorsBadge = (cxPx, cyPx, isVertical) => {
-                const badgeScale = Math.max(2.2, Math.min(3.3, pxPerMm * 1.15));
-                const badgeR = 2.6 * badgeScale;
-                ctx.save();
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
-                ctx.strokeStyle = '#dc2626';
-                ctx.lineWidth = 1.25;
-                ctx.beginPath();
-                ctx.arc(cxPx, cyPx, badgeR, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-                ctx.restore();
-                drawScissorsToCtx(ctx, cxPx / badgeScale, cyPx / badgeScale, badgeScale, isVertical, '#dc2626');
-            };
-
+    // 5. Draw clean red scissor badges on cut seams (without heavy cut lines or corner ticks)
+    if (settings.showCropMarks && (layout.cols > 1 || layout.rows > 1)) {
+        const drawPreviewScissorsBadge = (cxPx, cyPx, isVertical) => {
+            const badgeScale = Math.max(2.2, Math.min(3.3, pxPerMm * 1.15));
+            const badgeR = 2.6 * badgeScale;
             ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
             ctx.strokeStyle = '#dc2626';
-            ctx.lineWidth = 1.65;
-            ctx.setLineDash([5, 3]);
-
-            const topY = margin * pxPerMm;
-            const botY = (margin + layout.totalH) * pxPerMm;
-            const leftX = margin * pxPerMm;
-            const rightX = (margin + layout.totalW) * pxPerMm;
-
-            for (let c = 0; c < layout.cols - 1; c++) {
-                const seamX = (margin + c * stepX + layout.printableW) * pxPerMm;
-                ctx.beginPath();
-                ctx.moveTo(seamX, topY);
-                ctx.lineTo(seamX, botY);
-                ctx.stroke();
-            }
-
-            for (let r = 0; r < layout.rows - 1; r++) {
-                const seamY = (margin + r * stepY + layout.printableH) * pxPerMm;
-                ctx.beginPath();
-                ctx.moveTo(leftX, seamY);
-                ctx.lineTo(rightX, seamY);
-                ctx.stroke();
-            }
+            ctx.lineWidth = 1.25;
+            ctx.beginPath();
+            ctx.arc(cxPx, cyPx, badgeR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
             ctx.restore();
+            drawScissorsToCtx(ctx, cxPx / badgeScale, cyPx / badgeScale, badgeScale, isVertical, '#dc2626');
+        };
 
-            // Place crisp scissor badges along each seam (centered per tile when large enough)
-            const tilePxW = layout.printableW * pxPerMm;
-            const tilePxH = layout.printableH * pxPerMm;
-            for (let c = 0; c < layout.cols - 1; c++) {
-                const seamX = (margin + c * stepX + layout.printableW) * pxPerMm;
-                if (tilePxH >= 54) {
-                    for (let r = 0; r < layout.rows; r++) {
-                        const rowMidY = (margin + r * stepY + layout.printableH / 2) * pxPerMm;
-                        drawPreviewScissorsBadge(seamX, rowMidY, true);
-                    }
-                } else {
-                    drawPreviewScissorsBadge(seamX, (topY + botY) / 2, true);
+        const topY = margin * pxPerMm;
+        const botY = (margin + layout.totalH) * pxPerMm;
+        const leftX = margin * pxPerMm;
+        const rightX = (margin + layout.totalW) * pxPerMm;
+        const tilePxW = layout.printableW * pxPerMm;
+        const tilePxH = layout.printableH * pxPerMm;
+
+        for (let c = 0; c < layout.cols - 1; c++) {
+            const seamX = (margin + c * stepX + layout.printableW) * pxPerMm;
+            if (tilePxH >= 54) {
+                for (let r = 0; r < layout.rows; r++) {
+                    const rowMidY = (margin + r * stepY + layout.printableH / 2) * pxPerMm;
+                    drawPreviewScissorsBadge(seamX, rowMidY, true);
                 }
+            } else {
+                drawPreviewScissorsBadge(seamX, (topY + botY) / 2, true);
             }
-            for (let r = 0; r < layout.rows - 1; r++) {
-                const seamY = (margin + r * stepY + layout.printableH) * pxPerMm;
-                if (tilePxW >= 54) {
-                    for (let c = 0; c < layout.cols; c++) {
-                        const colMidX = (margin + c * stepX + layout.printableW / 2) * pxPerMm;
-                        drawPreviewScissorsBadge(colMidX, seamY, false);
-                    }
-                } else {
-                    drawPreviewScissorsBadge((leftX + rightX) / 2, seamY, false);
+        }
+        for (let r = 0; r < layout.rows - 1; r++) {
+            const seamY = (margin + r * stepY + layout.printableH) * pxPerMm;
+            if (tilePxW >= 54) {
+                for (let c = 0; c < layout.cols; c++) {
+                    const colMidX = (margin + c * stepX + layout.printableW / 2) * pxPerMm;
+                    drawPreviewScissorsBadge(colMidX, seamY, false);
                 }
+            } else {
+                drawPreviewScissorsBadge((leftX + rightX) / 2, seamY, false);
             }
         }
     }
@@ -1052,37 +998,16 @@ async function handlePosterFiles(files) {
 
 const POSTER_CUT_RGB = Object.freeze({ r: 220, g: 38, b: 38 });
 const POSTER_GLUE_RGB = Object.freeze({ r: 2, g: 132, b: 199 });
-const POSTER_TICK_RGB = Object.freeze({ r: 71, g: 85, b: 105 });
 
 /**
- * Draws a crimson cut seam (`dashed` + margin extension ticks + vector scissors + "RECORTAR"/"CUT")
- * on one edge of the current jsPDF poster tile.
+ * Draws only the red "RECORTAR AQUÍ" / "CUT HERE" indicator with vector scissors
+ * in the outer margin of a cut edge (no long cut lines or corner ticks).
  */
-function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side }) {
-    const hasDash = typeof doc.setLineDashPattern === 'function';
+function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side }) {
     const isVertical = side === 'left' || side === 'right';
-    const sx = side === 'right' ? x1 : x0;
-    const sy = side === 'bottom' ? y1 : y0;
-
-    if (hasDash) doc.setLineDashPattern([2.5, 1.5], 0);
-    doc.setDrawColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
-    doc.setLineWidth(0.38);
-
-    if (isVertical) {
-        doc.line(sx, y0, sx, y1);
-        if (hasDash) doc.setLineDashPattern([], 0);
-        doc.line(sx, y0 - tickGap, sx, y0 - tickGap - tickLen);
-        doc.line(sx, y1 + tickGap, sx, y1 + tickGap + tickLen);
-    } else {
-        doc.line(x0, sy, x1, sy);
-        if (hasDash) doc.setLineDashPattern([], 0);
-        doc.line(x0 - tickGap, sy, x0 - tickGap - tickLen, sy);
-        doc.line(x1 + tickGap, sy, x1 + tickGap + tickLen, sy);
-    }
-
-    const label = msg('RECORTAR', 'CUT');
+    const label = msg('RECORTAR AQUÍ', 'CUT HERE');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(7.2);
     doc.setTextColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
 
     const textW = doc.getTextWidth(label);
@@ -1092,7 +1017,7 @@ function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side })
     const groupW = iconW + gap + textW;
 
     if (isVertical) {
-        const cx = side === 'right' ? x1 + margin * 0.56 : x0 - margin * 0.48;
+        const cx = side === 'right' ? x1 + margin * 0.54 : x0 - margin * 0.46;
         const cy = (y0 + y1) / 2;
         const iconCy = cy + groupW / 2 - iconW / 2;
         drawScissorsToPdf(doc, cx, iconCy, iconScale, true, POSTER_CUT_RGB);
@@ -1100,7 +1025,7 @@ function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side })
         doc.text(label, cx + 0.85, textStartY, { angle: 90 });
     } else {
         const cx = (x0 + x1) / 2;
-        const cy = side === 'bottom' ? y1 + margin * 0.58 : y0 - margin * 0.44;
+        const cy = side === 'bottom' ? y1 + margin * 0.56 : y0 - margin * 0.44;
         const iconCx = cx - groupW / 2 + iconW / 2;
         drawScissorsToPdf(doc, iconCx, cy, iconScale, false, POSTER_CUT_RGB);
         const textStartX = cx - groupW / 2 + iconW + gap;
@@ -1109,42 +1034,22 @@ function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side })
 }
 
 /**
- * Draws a blue "DO NOT CUT" overlap alignment guide + neighbor reference label
- * inside the scrap margin that gets covered by the overlapping sheet.
+ * Draws only the blue "PEGAR AQUÍ" / "GLUE HERE" indicator in the margin
+ * of a glue overlap edge (no long guide lines or corner ticks).
  */
-function drawPdfGlueEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, guidePos, side, neighborLabel }) {
-    const hasDash = typeof doc.setLineDashPattern === 'function';
+function drawPdfGlueEdge(doc, { x0, y0, x1, y1, margin, side, neighborLabel }) {
     const isVertical = side === 'left';
-
-    if (hasDash) doc.setLineDashPattern([], 0);
-    doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
-    doc.setLineWidth(0.35);
-
-    if (isVertical) {
-        doc.line(guidePos, y0 - tickGap, guidePos, y0 - tickGap - tickLen);
-        doc.line(guidePos, y1 + tickGap, guidePos, y1 + tickGap + tickLen);
-        if (hasDash) doc.setLineDashPattern([2, 1.8], 0);
-        doc.line(guidePos, y0, guidePos, y1);
-    } else {
-        doc.line(x0 - tickGap, guidePos, x0 - tickGap - tickLen, guidePos);
-        doc.line(x1 + tickGap, guidePos, x1 + tickGap + tickLen, guidePos);
-        if (hasDash) doc.setLineDashPattern([2, 1.8], 0);
-        doc.line(x0, guidePos, x1, guidePos);
-    }
-
-    if (hasDash) doc.setLineDashPattern([], 0);
-
     const label = msg(
-        `NO CORTAR · Pegar ${neighborLabel}`,
-        `DO NOT CUT · Align ${neighborLabel}`
+        `PEGAR AQUÍ · ${neighborLabel}`,
+        `GLUE HERE · ${neighborLabel}`
     );
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6.8);
     doc.setTextColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
     const textW = doc.getTextWidth(label);
 
     if (isVertical) {
-        const cx = x0 - margin * 0.48;
+        const cx = x0 - margin * 0.46;
         const cy = (y0 + y1) / 2;
         doc.text(label, cx + 0.8, cy + textW / 2, { angle: 90 });
     } else {
@@ -1155,38 +1060,8 @@ function drawPdfGlueEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, guideP
 }
 
 /**
- * Formats a short bottom-margin assembly summary telling the user which edges of this sheet to cut.
- */
-function buildTileAssemblySummary(tile) {
-    const cut = tile.cutEdges || {};
-    const glue = tile.glueEdges || {};
-    const sideNames = AppState.lang === 'en'
-        ? { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' }
-        : { top: 'Sup', right: 'Der', bottom: 'Inf', left: 'Izq' };
-
-    const cuts = ['top', 'right', 'bottom', 'left'].filter((k) => cut[k]).map((k) => sideNames[k]);
-    const glues = ['top', 'left'].filter((k) => glue[k]).map((k) => sideNames[k]);
-
-    if (cuts.length === 0 && glues.length > 0) {
-        return {
-            text: msg('Hoja base: NO cortar bordes', 'Base sheet: DO NOT cut seams'),
-            isBaseOnly: true,
-        };
-    }
-
-    const parts = [];
-    if (cuts.length > 0) {
-        parts.push(msg(`Cortar: ${cuts.join(', ')}`, `Cut: ${cuts.join(', ')}`));
-    }
-    if (glues.length > 0) {
-        parts.push(msg(`No cortar: ${glues.join(', ')}`, `Keep: ${glues.join(', ')}`));
-    }
-    return { text: parts.join(' | '), isBaseOnly: false };
-}
-
-/**
- * Draws outer corner crop marks, explicit red cut lines with vector scissors,
- * blue "DO NOT CUT" overlap alignment guides, and optional tile labels onto jsPDF.
+ * Draws clean red cut labels (✂ RECORTAR AQUÍ) and blue glue labels (PEGAR AQUÍ)
+ * without long cut lines, corner ticks, or colliding edge summaries, plus optional tile labels.
  *
  * @param {object} doc jsPDF instance
  * @param {object} layout Computed poster layout
@@ -1201,78 +1076,35 @@ function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabe
     const bottomLabelY = Math.min(layout.sheetH - 1.8, y1 + Math.max(3.6, margin * 0.58));
 
     if (showCropMarks) {
-        const tickGap = Math.min(1, margin * 0.15);
-        const tickLen = Math.max(2, Math.min(5, margin - tickGap - 0.5));
-        const hasDash = typeof doc.setLineDashPattern === 'function';
-
-        if (hasDash) doc.setLineDashPattern([], 0);
-        doc.setDrawColor(POSTER_TICK_RGB.r, POSTER_TICK_RGB.g, POSTER_TICK_RGB.b);
-        doc.setLineWidth(0.25);
-
-        // 4 outer printable margin crop corner ticks
-        doc.line(x0, y0 - tickGap, x0, y0 - tickGap - tickLen);
-        doc.line(x0 - tickGap, y0, x0 - tickGap - tickLen, y0);
-        doc.line(x1, y0 - tickGap, x1, y0 - tickGap - tickLen);
-        doc.line(x1 + tickGap, y0, x1 + tickGap + tickLen, y0);
-        doc.line(x0, y1 + tickGap, x0, y1 + tickGap + tickLen);
-        doc.line(x0 - tickGap, y1, x0 - tickGap - tickLen, y1);
-        doc.line(x1, y1 + tickGap, x1, y1 + tickGap + tickLen);
-        doc.line(x1 + tickGap, y1, x1 + tickGap + tickLen, y1);
-
-        // Explicit CUT edges (red dashed + scissors + RECORTAR/CUT)
         const cut = tile.cutEdges || {};
         for (const side of ['top', 'right', 'bottom', 'left']) {
             if (cut[side]) {
-                drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, tickGap, tickLen, side });
+                drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side });
             }
         }
 
-        // Explicit DO-NOT-CUT glue tab alignment guides (blue dashed + NO CORTAR)
         const glue = tile.glueEdges || {};
-        const guides = tile.overlapGuides || {};
-        if (glue.left && typeof guides.left === 'number') {
+        if (glue.left) {
             drawPdfGlueEdge(doc, {
                 x0,
                 y0,
                 x1,
                 y1,
                 margin,
-                tickGap,
-                tickLen,
-                guidePos: guides.left,
                 side: 'left',
                 neighborLabel: `F${tile.row + 1}-C${tile.col}`,
             });
         }
-        if (glue.top && typeof guides.top === 'number') {
+        if (glue.top) {
             drawPdfGlueEdge(doc, {
                 x0,
                 y0,
                 x1,
                 y1,
                 margin,
-                tickGap,
-                tickLen,
-                guidePos: guides.top,
                 side: 'top',
                 neighborLabel: `F${tile.row}-C${tile.col + 1}`,
             });
-        }
-
-        if (hasDash) {
-            doc.setLineDashPattern([], 0);
-        }
-
-        // Concise per-sheet instruction summary on wider sheets
-        if (layout.totalPages > 1 && pw >= 140) {
-            const summary = buildTileAssemblySummary(tile);
-            if (summary.text) {
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(6.5);
-                const color = summary.isBaseOnly ? POSTER_GLUE_RGB : POSTER_TICK_RGB;
-                doc.setTextColor(color.r, color.g, color.b);
-                doc.text(summary.text, x0, bottomLabelY);
-            }
         }
     }
 
