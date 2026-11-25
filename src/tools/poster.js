@@ -164,8 +164,8 @@ function readPosterSettings() {
     const rows = clamp(Math.round(toFiniteNumber(dom.rows?.value, 2)), 1, 10);
     const quality = clamp(toFiniteNumber(dom.quality?.value, 0.92), 0.5, 1.0);
     const overlapMm = clamp(toFiniteNumber(dom.overlap?.value, 5), 0, 15);
-    const showCropMarks = dom.cropMarks ? Boolean(dom.cropMarks.checked) : true;
-    const showTileLabels = dom.tileLabels ? Boolean(dom.tileLabels.checked) : true;
+    const showCropMarks = dom.cropMarks ? Boolean(dom.cropMarks.checked) : false;
+    const showTileLabels = dom.tileLabels ? Boolean(dom.tileLabels.checked) : false;
 
     return {
         paperKey,
