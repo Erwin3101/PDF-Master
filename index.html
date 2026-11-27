@@ -328,14 +328,22 @@
                                                 </div>
                                             </div>
 
-                                            <div class="control-grid-2">
+                                            <div class="control-grid-2 poster-dims-row">
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-cols" data-i18n="poster_cols">Ancho (Hojas)</label>
-                                                    <input type="number" id="poster-cols" class="field-input" value="2" min="1" max="20">
+                                                    <div class="poster-stepper">
+                                                        <button type="button" class="poster-stepper-btn" data-target="cols" data-delta="-1" data-i18n-aria="aria_dec_cols" aria-label="Reducir ancho">−</button>
+                                                        <input type="number" id="poster-cols" class="field-input poster-stepper-input" value="2" min="1" max="20" inputmode="numeric">
+                                                        <button type="button" class="poster-stepper-btn" data-target="cols" data-delta="1" data-i18n-aria="aria_inc_cols" aria-label="Aumentar ancho">+</button>
+                                                    </div>
                                                 </div>
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-rows" data-i18n="poster_rows">Alto (Hojas)</label>
-                                                    <input type="number" id="poster-rows" class="field-input" value="2" min="1" max="20">
+                                                    <div class="poster-stepper">
+                                                        <button type="button" class="poster-stepper-btn" data-target="rows" data-delta="-1" data-i18n-aria="aria_dec_rows" aria-label="Reducir alto">−</button>
+                                                        <input type="number" id="poster-rows" class="field-input poster-stepper-input" value="2" min="1" max="20" inputmode="numeric">
+                                                        <button type="button" class="poster-stepper-btn" data-target="rows" data-delta="1" data-i18n-aria="aria_inc_rows" aria-label="Aumentar alto">+</button>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -353,11 +361,11 @@
 
                                             <div class="control-grid-2">
                                                 <div class="field-group">
-                                                    <label class="field-label" for="poster-quality" data-i18n="poster_quality">Calidad JPEG</label>
+                                                    <label class="field-label" for="poster-quality" data-i18n="poster_quality">Calidad de exportación</label>
                                                     <select id="poster-quality" class="field-select">
-                                                        <option value="0.85" data-i18n="poster_q_light">Ligera (85%)</option>
-                                                        <option value="0.92" selected data-i18n="poster_q_opt">Óptima (92%)</option>
-                                                        <option value="0.96" data-i18n="poster_q_max">Máxima (96%)</option>
+                                                        <option value="0.88" data-i18n="poster_q_light">Ligera (88%)</option>
+                                                        <option value="0.95" selected data-i18n="poster_q_opt">Óptima (95%)</option>
+                                                        <option value="1" data-i18n="poster_q_max">Sin pérdida (PNG)</option>
                                                     </select>
                                                 </div>
                                                 <div class="field-group">
@@ -433,8 +441,8 @@
                                             </div>
                                         </div>
 
-                                        <div class="btn-row">
-                                            <button type="button" id="poster-download-btn" class="btn btn-primary" style="flex:1;">
+                                        <div class="btn-row poster-action-row">
+                                            <button type="button" id="poster-download-btn" class="btn btn-primary poster-download-btn" style="flex:1;">
                                                 <i data-lucide="download"></i> <span data-i18n="btn_download">Descargar PDF</span>
                                             </button>
                                             <button type="button" id="poster-print-btn" class="btn btn-secondary">
@@ -477,6 +485,7 @@
                                                     <span class="poster-legend-swatch poster-legend-swatch--glue" aria-hidden="true"></span>
                                                     <span data-i18n="poster_legend_glue">Azul (PEGAR AQUÍ): solapa de pegado</span>
                                                 </span>
+                                                <span id="poster-margin-marks-hint" class="poster-legend-hint hidden" data-i18n="poster_margin_marks_hint">Activa margen (≥ 5 mm) para imprimir RECORTAR AQUÍ / PEGAR AQUÍ en los bordes</span>
                                             </div>
                                             <p id="poster-preview-caption" style="margin:0;font-size:0.8rem;color:var(--text-muted);text-align:center;"></p>
                                         </div>
