@@ -331,11 +331,23 @@
                                             <div class="control-grid-2">
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-cols" data-i18n="poster_cols">Ancho (Hojas)</label>
-                                                    <input type="number" id="poster-cols" class="field-input" value="2" min="1" max="15">
+                                                    <input type="number" id="poster-cols" class="field-input" value="2" min="1" max="20">
                                                 </div>
                                                 <div class="field-group">
                                                     <label class="field-label" for="poster-rows" data-i18n="poster_rows">Alto (Hojas)</label>
-                                                    <input type="number" id="poster-rows" class="field-input" value="2" min="1" max="15">
+                                                    <input type="number" id="poster-rows" class="field-input" value="2" min="1" max="20">
+                                                </div>
+                                            </div>
+
+                                            <div class="field-group">
+                                                <span id="poster-quick-grids-label" class="field-label" data-i18n="poster_quick_grids">Cuadrículas rápidas</span>
+                                                <div class="poster-grid-presets" role="group" aria-labelledby="poster-quick-grids-label">
+                                                    <button type="button" class="preset-pill poster-grid-preset" data-cols="2" data-rows="1" aria-pressed="false">2×1</button>
+                                                    <button type="button" class="preset-pill poster-grid-preset" data-cols="3" data-rows="1" aria-pressed="false">3×1</button>
+                                                    <button type="button" class="preset-pill poster-grid-preset" data-cols="1" data-rows="2" aria-pressed="false">1×2</button>
+                                                    <button type="button" class="preset-pill poster-grid-preset is-active" data-cols="2" data-rows="2" aria-pressed="true">2×2</button>
+                                                    <button type="button" class="preset-pill poster-grid-preset" data-cols="3" data-rows="2" aria-pressed="false">3×2</button>
+                                                    <button type="button" class="preset-pill poster-grid-preset" data-cols="3" data-rows="3" aria-pressed="false">3×3</button>
                                                 </div>
                                             </div>
 
@@ -362,8 +374,10 @@
                                             <div class="field-group">
                                                 <label class="field-label" for="poster-fit-mode" data-i18n="poster_fit_mode">Modo de Encuadre</label>
                                                 <select id="poster-fit-mode" class="field-select">
-                                                    <option value="contain" selected data-i18n="poster_fit_contain">Sin deformar (Imagen completa)</option>
+                                                    <option value="stretch" selected data-i18n="poster_fit_stretch">Ajustar a cuadrícula exacta (Llenar hojas)</option>
+                                                    <option value="contain" data-i18n="poster_fit_contain">Sin deformar (Imagen completa)</option>
                                                     <option value="proportional" data-i18n="poster_fit_proportional">Proporcional al ancho (Alto auto)</option>
+                                                    <option value="proportional-height" data-i18n="poster_fit_proportional_height">Proporcional al alto (Ancho auto)</option>
                                                     <option value="cover" data-i18n="poster_fit_cover">Llenar recortando (Cubre todas las hojas)</option>
                                                 </select>
                                             </div>

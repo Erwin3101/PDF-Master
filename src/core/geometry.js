@@ -179,11 +179,20 @@ export function computeDuplicate2x1Layout({
 }
 
 /**
- * Computes exact distortion-free tile geometry for Poster.
+ * Computes exact tile geometry for Poster across all five fit modes:
+ * - `stretch`: fills the exact requested `cols × rows` printable area without cropping
+ *   (any `2×1`, `3×1`, `1×2`, `N×M` divides the entire image cleanly across every sheet).
+ * - `cover`: fills the exact requested `cols × rows` printable area with zero distortion
+ *   by center-cropping the overflowing axis.
+ * - `contain`: preserves aspect ratio and full image inside `cols × rows`, trimming
+ *   unused blank sheets without ever shrinking the placed image.
+ * - `proportional`: preserves aspect ratio and full image across `cols` sheets wide,
+ *   auto-computing the optimal `rows` without empty outer columns.
+ * - `proportional-height`: symmetric twin fixing `rows` sheets tall and auto-computing `cols`.
+ *
  * Provides continuous `exactSrcRect` for sub-pixel-accurate Canvas/PDF rendering
- * (zero seam drift or aspect distortion across any image/grid size) alongside
- * strictly in-bounds integer `srcRect` bounds, trims empty/sliver sheets in
- * `contain` mode, and supports `proportional` auto-row sizing.
+ * (zero seam drift across any image/grid/overlap combination) alongside strictly
+ * in-bounds integer `srcRect` bounds.
  */
 export function computePosterLayout({
     imgW,
@@ -195,16 +204,24 @@ export function computePosterLayout({
     fitMode = 'contain',
     overlapMm = 5,
     marginMm = 8,
+    lang = 'es',
 }) {
+    const MAX_MANUAL_GRID = 20;
+    const MAX_AUTO_GRID = 30;
     const safeImgW = Math.max(1, Math.round(Number(imgW) || 1));
     const safeImgH = Math.max(1, Math.round(Number(imgH) || 1));
-    const requestedCols = clamp(Math.round(Number(cols) || 1), 1, 15);
-    const requestedRows = clamp(Math.round(Number(rows) || 1), 1, 15);
+    const requestedCols = clamp(Math.round(Number(cols) || 1), 1, MAX_MANUAL_GRID);
+    const requestedRows = clamp(Math.round(Number(rows) || 1), 1, MAX_MANUAL_GRID);
     const overlap = clamp(Number(overlapMm) || 0, 0, 15);
     const parsedMargin = Number(marginMm);
     const margin = clamp(Number.isFinite(parsedMargin) ? parsedMargin : 8, 0, 20);
     const normalizedFitMode =
-        fitMode === 'cover' || fitMode === 'proportional' ? fitMode : 'contain';
+        fitMode === 'stretch' ||
+        fitMode === 'cover' ||
+        fitMode === 'proportional' ||
+        fitMode === 'proportional-height'
+            ? fitMode
+            : 'contain';
 
     const spec = PAPER_SIZES[paperKey] || PAPER_SIZES.letter;
     const shortDim = Math.min(spec.w, spec.h);
@@ -223,37 +240,91 @@ export function computePosterLayout({
         return { printableW, printableH, effOx, effOy, stepX, stepY, totalW, totalH };
     };
 
-    const evaluateOrientation = (sheetW, sheetH) => {
-        if (normalizedFitMode === 'proportional') {
-            const printableW = Math.max(10, sheetW - margin * 2);
-            const printableH = Math.max(10, sheetH - margin * 2);
-            const effOx = requestedCols > 1 ? Math.min(overlap, printableW * 0.35) : 0;
-            const totalW = printableW + (requestedCols - 1) * (printableW - effOx);
-            const idealH = totalW / imgRatio;
-            // Allow 0.5 mm tolerance before spilling onto an extra row
-            let propRows = 1;
-            if (idealH > printableH + 0.5) {
-                const effOyMulti = Math.min(overlap, printableH * 0.35);
-                const stepYMulti = printableH - effOyMulti;
-                propRows = clamp(
-                    1 + Math.ceil((idealH - printableH - 0.5) / stepYMulti),
-                    1,
-                    25
-                );
+    const computeAutoSpan = (targetMm, printableMm, maxSpan = MAX_AUTO_GRID, toleranceMm = 1e-3) => {
+        if (targetMm <= printableMm + toleranceMm) return 1;
+        const effOvMulti = Math.min(overlap, printableMm * 0.35);
+        const stepMulti = Math.max(1, printableMm - effOvMulti);
+        return clamp(1 + Math.ceil((targetMm - printableMm - toleranceMm) / stepMulti), 1, maxSpan);
+    };
+
+    const resolveProportionalGrid = (sheetW, sheetH, fixedAxis) => {
+        const basePrintableW = Math.max(10, sheetW - margin * 2);
+        const basePrintableH = Math.max(10, sheetH - margin * 2);
+
+        if (fixedAxis === 'height') {
+            let rCount = requestedRows;
+            const effOy = rCount > 1 ? Math.min(overlap, basePrintableH * 0.35) : 0;
+            const baseTotalH = basePrintableH + (rCount - 1) * (basePrintableH - effOy);
+            const idealW = baseTotalH * imgRatio;
+            // Allow 0.5 mm rounding tolerance so standard A4/Letter scans never spill onto sliver columns
+            let cCount = computeAutoSpan(idealW, basePrintableW, MAX_AUTO_GRID, 0.5);
+            let m = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+            // If column cap prevents full width, trim unused rows strictly without shrinking
+            if (imgRatio > m.totalW / m.totalH + 1e-6) {
+                const cappedH = m.totalW / imgRatio;
+                const neededRows = clamp(computeAutoSpan(cappedH, basePrintableH, rCount, 1e-3), 1, rCount);
+                if (neededRows < rCount) {
+                    rCount = neededRows;
+                    m = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+                }
             }
-            const metrics = computeGridMetrics(sheetW, sheetH, requestedCols, propRows);
-            const scale = Math.min(metrics.totalW / safeImgW, metrics.totalH / safeImgH);
+            return { cCount, rCount, metrics: m };
+        }
+
+        let cCount = requestedCols;
+        const effOx = cCount > 1 ? Math.min(overlap, basePrintableW * 0.35) : 0;
+        const baseTotalW = basePrintableW + (cCount - 1) * (basePrintableW - effOx);
+        const idealH = baseTotalW / imgRatio;
+        // Allow 0.5 mm rounding tolerance so standard A4/Letter scans never spill onto sliver rows
+        let rCount = computeAutoSpan(idealH, basePrintableH, MAX_AUTO_GRID, 0.5);
+        let m = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+        // If row cap prevents full height, trim unused outer columns strictly without shrinking
+        if (m.totalW / m.totalH > imgRatio + 1e-6) {
+            const cappedW = m.totalH * imgRatio;
+            const neededCols = clamp(computeAutoSpan(cappedW, basePrintableW, cCount, 1e-3), 1, cCount);
+            if (neededCols < cCount) {
+                cCount = neededCols;
+                m = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+            }
+        }
+        return { cCount, rCount, metrics: m };
+    };
+
+    const evaluateOrientation = (sheetW, sheetH) => {
+        if (normalizedFitMode === 'stretch') {
+            const m = computeGridMetrics(sheetW, sheetH, requestedCols, requestedRows);
+            const gridRatio = m.totalW / m.totalH;
+            const aspectDistortion = Math.max(gridRatio / imgRatio, imgRatio / gridRatio);
+            return {
+                sheetW,
+                sheetH,
+                aspectDistortion,
+                areaUsed: m.totalW * m.totalH,
+                totalPages: requestedCols * requestedRows,
+                efficiency: 1,
+                coverLoss: 0,
+            };
+        }
+
+        if (normalizedFitMode === 'proportional' || normalizedFitMode === 'proportional-height') {
+            const { cCount, rCount, metrics: m } = resolveProportionalGrid(
+                sheetW,
+                sheetH,
+                normalizedFitMode === 'proportional-height' ? 'height' : 'width'
+            );
+            const scale = Math.min(m.totalW / safeImgW, m.totalH / safeImgH);
             const placedW = safeImgW * scale;
             const placedH = safeImgH * scale;
-            const sheetArea = Math.max(1, requestedCols * propRows * sheetW * sheetH);
+            const sheetArea = Math.max(1, cCount * rCount * sheetW * sheetH);
             const efficiency = (placedW * placedH) / sheetArea;
             return {
                 sheetW,
                 sheetH,
-                propRows,
                 areaUsed: placedW * placedH,
+                totalPages: cCount * rCount,
                 efficiency,
                 coverLoss: 0,
+                aspectDistortion: 1,
             };
         }
 
@@ -263,24 +334,47 @@ export function computePosterLayout({
         const coverCropRatio = Math.max(m.totalW / safeImgW, m.totalH / safeImgH);
         const coverLoss =
             1 - (m.totalW * m.totalH) / Math.max(1, safeImgW * coverCropRatio * safeImgH * coverCropRatio);
-        return { sheetW, sheetH, areaUsed, coverLoss, efficiency: 0 };
+        return {
+            sheetW,
+            sheetH,
+            areaUsed,
+            totalPages: requestedCols * requestedRows,
+            coverLoss,
+            efficiency: 0,
+            aspectDistortion: 1,
+        };
     };
 
     let resolvedOrient = orientation;
     if (orientation === 'auto') {
         const pEval = evaluateOrientation(shortDim, longDim);
         const lEval = evaluateOrientation(longDim, shortDim);
-        if (normalizedFitMode === 'cover') {
-            resolvedOrient = lEval.coverLoss < pEval.coverLoss ? 'l' : 'p';
-        } else if (normalizedFitMode === 'proportional') {
-            // Prefer matching image orientation unless the alternate orientation yields substantially better sheet usage
-            if (Math.abs(lEval.efficiency - pEval.efficiency) > 0.12) {
-                resolvedOrient = lEval.efficiency > pEval.efficiency ? 'l' : 'p';
+        if (normalizedFitMode === 'stretch') {
+            if (Math.abs(lEval.aspectDistortion - pEval.aspectDistortion) > 1e-6) {
+                resolvedOrient = lEval.aspectDistortion < pEval.aspectDistortion ? 'l' : 'p';
             } else {
-                resolvedOrient = imgRatio >= 1 ? 'l' : 'p';
+                resolvedOrient = imgRatio > 1 ? 'l' : 'p';
+            }
+        } else if (normalizedFitMode === 'cover') {
+            if (Math.abs(lEval.coverLoss - pEval.coverLoss) > 1e-6) {
+                resolvedOrient = lEval.coverLoss < pEval.coverLoss ? 'l' : 'p';
+            } else {
+                resolvedOrient = imgRatio > 1 ? 'l' : 'p';
+            }
+        } else if (normalizedFitMode === 'proportional' || normalizedFitMode === 'proportional-height') {
+            if (Math.abs(lEval.efficiency - pEval.efficiency) > 0.02) {
+                resolvedOrient = lEval.efficiency > pEval.efficiency ? 'l' : 'p';
+            } else if (lEval.totalPages !== pEval.totalPages) {
+                resolvedOrient = lEval.totalPages < pEval.totalPages ? 'l' : 'p';
+            } else {
+                resolvedOrient = imgRatio > 1 ? 'l' : 'p';
             }
         } else {
-            resolvedOrient = lEval.areaUsed > pEval.areaUsed ? 'l' : 'p';
+            if (Math.abs(lEval.areaUsed - pEval.areaUsed) > 1e-3) {
+                resolvedOrient = lEval.areaUsed > pEval.areaUsed ? 'l' : 'p';
+            } else {
+                resolvedOrient = imgRatio > 1 ? 'l' : 'p';
+            }
         }
     }
 
@@ -291,53 +385,34 @@ export function computePosterLayout({
 
     let cCount = requestedCols;
     let rCount = requestedRows;
+    let metrics;
 
-    if (normalizedFitMode === 'proportional') {
-        const effOx = cCount > 1 ? Math.min(overlap, basePrintableW * 0.35) : 0;
-        const baseTotalW = basePrintableW + (cCount - 1) * (basePrintableW - effOx);
-        const idealH = baseTotalW / imgRatio;
-        if (idealH <= basePrintableH + 0.5) {
-            rCount = 1;
-        } else {
-            const effOyMulti = Math.min(overlap, basePrintableH * 0.35);
-            const stepYMulti = basePrintableH - effOyMulti;
-            rCount = clamp(
-                1 + Math.ceil((idealH - basePrintableH - 0.5) / stepYMulti),
-                1,
-                25
-            );
-        }
-    }
+    if (normalizedFitMode === 'proportional' || normalizedFitMode === 'proportional-height') {
+        const resolved = resolveProportionalGrid(
+            sheetW,
+            sheetH,
+            normalizedFitMode === 'proportional-height' ? 'height' : 'width'
+        );
+        cCount = resolved.cCount;
+        rCount = resolved.rCount;
+        metrics = resolved.metrics;
+    } else {
+        metrics = computeGridMetrics(sheetW, sheetH, cCount, rCount);
 
-    let metrics = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+        // Trim completely blank sheets in contain mode without shrinking the placed image
+        if (normalizedFitMode === 'contain') {
+            const initialRatio = metrics.totalW / metrics.totalH;
+            const initPlacedW = imgRatio > initialRatio ? metrics.totalW : metrics.totalH * imgRatio;
+            const initPlacedH = imgRatio > initialRatio ? metrics.totalW / imgRatio : metrics.totalH;
 
-    // Trim completely blank / overlap-sliver sheets in contain mode so every sheet carries real image content
-    if (normalizedFitMode === 'contain') {
-        const initialRatio = metrics.totalW / metrics.totalH;
-        const initPlacedW = imgRatio > initialRatio ? metrics.totalW : metrics.totalH * imgRatio;
-        const initPlacedH = imgRatio > initialRatio ? metrics.totalW / imgRatio : metrics.totalH;
+            const minCols = clamp(computeAutoSpan(initPlacedW, basePrintableW, cCount), 1, cCount);
+            const minRows = clamp(computeAutoSpan(initPlacedH, basePrintableH, rCount), 1, rCount);
 
-        const minCols =
-            initPlacedW <= basePrintableW + 0.5
-                ? 1
-                : clamp(
-                      1 + Math.ceil((initPlacedW - basePrintableW - 0.5) / Math.max(1, metrics.stepX)),
-                      1,
-                      cCount
-                  );
-        const minRows =
-            initPlacedH <= basePrintableH + 0.5
-                ? 1
-                : clamp(
-                      1 + Math.ceil((initPlacedH - basePrintableH - 0.5) / Math.max(1, metrics.stepY)),
-                      1,
-                      rCount
-                  );
-
-        if (minCols < cCount || minRows < rCount) {
-            cCount = minCols;
-            rCount = minRows;
-            metrics = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+            if (minCols < cCount || minRows < rCount) {
+                cCount = minCols;
+                rCount = minRows;
+                metrics = computeGridMetrics(sheetW, sheetH, cCount, rCount);
+            }
         }
     }
 
@@ -361,7 +436,12 @@ export function computePosterLayout({
     let cropSrcW = safeImgW;
     let cropSrcH = safeImgH;
 
-    if (normalizedFitMode === 'cover') {
+    if (normalizedFitMode === 'stretch') {
+        placedX = 0;
+        placedY = 0;
+        placedW = totalW;
+        placedH = totalH;
+    } else if (normalizedFitMode === 'cover') {
         placedX = 0;
         placedY = 0;
         placedW = totalW;
@@ -376,7 +456,7 @@ export function computePosterLayout({
             cropSrcY = (safeImgH - cropSrcH) / 2;
         }
     } else {
-        // contain & proportional: never distort or crop
+        // contain, proportional, proportional-height: never distort or crop
         if (imgRatio > posterRatio) {
             placedW = totalW;
             placedH = totalW / imgRatio;
@@ -386,9 +466,20 @@ export function computePosterLayout({
             placedH = totalH;
             placedW = totalH * imgRatio;
             placedY = 0;
-            placedX = (totalW - placedW) / 2;
+            placedX = normalizedFitMode === 'proportional-height' ? 0 : (totalW - placedW) / 2;
         }
     }
+
+    const placedRatio = placedW / Math.max(1e-6, placedH);
+    const effectiveSrcRatio = cropSrcW / Math.max(1e-6, cropSrcH);
+    const aspectDistortion = Math.max(
+        placedRatio / effectiveSrcRatio,
+        effectiveSrcRatio / placedRatio
+    );
+
+    const isEn = lang === 'en';
+    const rowPrefix = isEn ? 'R' : 'F';
+    const pageWord = isEn ? 'Page' : 'Pág';
 
     const totalPages = cCount * rCount;
     const tiles = [];
@@ -411,7 +502,7 @@ export function computePosterLayout({
             let exactSrcRect = null;
             let destRectMm = null;
 
-            if (ix1 > ix0 + 0.05 && iy1 > iy0 + 0.05) {
+            if (ix1 > ix0 + 1e-4 && iy1 > iy0 + 1e-4) {
                 const u0 = clamp((ix0 - placedX) / placedW, 0, 1);
                 const v0 = clamp((iy0 - placedY) / placedH, 0, 1);
                 const u1 = clamp((ix1 - placedX) / placedW, 0, 1);
@@ -422,11 +513,16 @@ export function computePosterLayout({
                 const esx1 = clamp(cropSrcX + u1 * cropSrcW, esx0, safeImgW);
                 const esy1 = clamp(cropSrcY + v1 * cropSrcH, esy0, safeImgH);
 
+                const rawSw = esx1 - esx0;
+                const rawSh = esy1 - esy0;
+                const safeEsx = rawSw < 1e-4 ? clamp(esx0, 0, Math.max(0, safeImgW - 1e-4)) : esx0;
+                const safeEsy = rawSh < 1e-4 ? clamp(esy0, 0, Math.max(0, safeImgH - 1e-4)) : esy0;
+
                 exactSrcRect = {
-                    sx: esx0,
-                    sy: esy0,
-                    sw: Math.max(1e-4, esx1 - esx0),
-                    sh: Math.max(1e-4, esy1 - esy0),
+                    sx: safeEsx,
+                    sy: safeEsy,
+                    sw: Math.min(safeImgW - safeEsx, Math.max(1e-4, rawSw)),
+                    sh: Math.min(safeImgH - safeEsy, Math.max(1e-4, rawSh)),
                 };
 
                 const px0 = clamp(Math.floor(esx0 + 1e-6), 0, Math.max(0, safeImgW - 1));
@@ -449,12 +545,14 @@ export function computePosterLayout({
                 };
             }
 
+            const shortLabel = `${rowPrefix}${r + 1}-C${c + 1}`;
             tiles.push({
                 row: r,
                 col: c,
                 pageNum,
                 totalPages,
-                label: `F${r + 1}-C${c + 1} · Pág ${pageNum}/${totalPages}`,
+                shortLabel,
+                label: `${shortLabel} · ${pageWord} ${pageNum}/${totalPages}`,
                 srcRect,
                 exactSrcRect,
                 destRectMm,
@@ -505,6 +603,7 @@ export function computePosterLayout({
         assembledHeightCm: Math.round((totalH / 10) * 10) / 10,
         imageWidthCm: Math.round((placedW / 10) * 10) / 10,
         imageHeightCm: Math.round((placedH / 10) * 10) / 10,
+        aspectDistortion,
         placedRectMm: { x: placedX, y: placedY, w: placedW, h: placedH },
         cropSrcRect: { sx: cropSrcX, sy: cropSrcY, sw: cropSrcW, sh: cropSrcH },
         tiles,

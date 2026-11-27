@@ -11,6 +11,7 @@ import { ProgressModal } from '../ui/progressModal.js';
 import { bindDropzone } from '../ui/dropzone.js';
 
 const POSTER_BLOB_SCOPE = 'poster';
+const MAX_POSTER_GRID = 20;
 const MAX_PREVIEW_CANVAS_PX = 760;
 const MAX_PREVIEW_SOURCE_PX = 1100;
 const MAX_PDF_RENDER_DIM = 4096;
@@ -53,6 +54,8 @@ const state = {
     items: [],
     currentIndex: 0,
     previewMode: 'assembled',
+    manualCols: 2,
+    manualRows: 2,
     filters: {
         preset: 'original',
         brightness: 0,
@@ -150,7 +153,7 @@ function getDom() {
  * @returns {{
  *   paperKey: string,
  *   orientation: 'auto'|'p'|'l',
- *   fitMode: 'contain'|'cover',
+ *   fitMode: 'stretch'|'contain'|'proportional'|'proportional-height'|'cover',
  *   cols: number,
  *   rows: number,
  *   quality: number,
@@ -166,11 +169,19 @@ function readPosterSettings() {
     const paperKey = PAPER_SIZES[rawPaper] ? rawPaper : 'letter';
     const rawOrient = dom.orientation?.value || 'auto';
     const orientation = rawOrient === 'p' || rawOrient === 'l' ? rawOrient : 'auto';
-    const rawFit = dom.fitMode?.value || 'contain';
+    const rawFit = dom.fitMode?.value || 'stretch';
     const fitMode =
-        rawFit === 'cover' || rawFit === 'proportional' ? rawFit : 'contain';
-    const cols = clamp(Math.round(toFiniteNumber(dom.cols?.value, 2)), 1, 15);
-    const rows = clamp(Math.round(toFiniteNumber(dom.rows?.value, 2)), 1, 15);
+        rawFit === 'stretch' ||
+        rawFit === 'contain' ||
+        rawFit === 'cover' ||
+        rawFit === 'proportional' ||
+        rawFit === 'proportional-height'
+            ? rawFit
+            : 'stretch';
+    const colsSource = dom.cols?.disabled ? state.manualCols : dom.cols?.value;
+    const rowsSource = dom.rows?.disabled ? state.manualRows : dom.rows?.value;
+    const cols = clamp(Math.round(toFiniteNumber(colsSource, state.manualCols)), 1, MAX_POSTER_GRID);
+    const rows = clamp(Math.round(toFiniteNumber(rowsSource, state.manualRows)), 1, MAX_POSTER_GRID);
     const quality = clamp(toFiniteNumber(dom.quality?.value, 0.92), 0.5, 1.0);
     const marginMm = clamp(toFiniteNumber(dom.margin?.value, DEFAULT_POSTER_MARGIN_MM), 0, 20);
     const overlapMm = clamp(toFiniteNumber(dom.overlap?.value, 5), 0, 15);
@@ -545,55 +556,179 @@ function drawCanvasTileBadge(ctx, text, bx, by, maxBadgeW, fontSize, compactPad)
 }
 
 /**
- * Draws crisp outer-margin corner ticks and overlap alignment ticks on a Canvas 2D sheet.
+ * Formats localized tile coordinate code (`F1-C2` in ES, `R1-C2` in EN).
+ * @param {number} row1Based
+ * @param {number} col1Based
+ * @returns {string}
+ */
+function formatTileCoord(row1Based, col1Based) {
+    const prefix = AppState.lang === 'en' ? 'R' : 'F';
+    return `${prefix}${row1Based}-C${col1Based}`;
+}
+
+/**
+ * Computes strictly in-bounds Canvas 2D `drawImage` source rectangle for a bitmap
+ * so Safari/WebKit never throws `IndexSizeError` on tiny edge slivers.
+ */
+function clampSourceDrawRect(src, bmpScaleX, bmpScaleY, bmpW, bmpH) {
+    const rawSx = src.sx * bmpScaleX;
+    const rawSy = src.sy * bmpScaleY;
+    const rawSw = src.sw * bmpScaleX;
+    const rawSh = src.sh * bmpScaleY;
+    const minDim = 0.25;
+    const sx = clamp(rawSx, 0, Math.max(0, bmpW - minDim));
+    const sy = clamp(rawSy, 0, Math.max(0, bmpH - minDim));
+    const sw = Math.min(bmpW - sx, Math.max(minDim, rawSw));
+    const sh = Math.min(bmpH - sy, Math.max(minDim, rawSh));
+    return { sx, sy, sw, sh };
+}
+
+/**
+ * Draws crisp outer-margin corner ticks, alignment triangles, and cut/glue indicators
+ * on a Canvas 2D sheet, matching the exported PDF 1:1.
  */
 function drawCanvasMarginMarks(ctx, { ox, oy, x0, y0, x1, y1, margin, cutEdges, glueEdges, overlapGuides, pxPerMm }) {
-    if (margin < 3) return;
-    const gap = Math.min(1.0, margin * 0.14);
-    const len = Math.max(2.0, Math.min(4.2, margin - gap - 0.5));
     const sx0 = (ox + x0) * pxPerMm;
     const sy0 = (oy + y0) * pxPerMm;
     const sx1 = (ox + x1) * pxPerMm;
     const sy1 = (oy + y1) * pxPerMm;
-    const gapPx = gap * pxPerMm;
-    const lenPx = len * pxPerMm;
-
-    ctx.save();
-    ctx.lineWidth = Math.max(1, 0.28 * pxPerMm);
     const cutColor = '#dc2626';
     const slateColor = '#64748b';
     const glueColor = '#0284c7';
 
-    // Corner crop ticks strictly in the outer margin
-    const drawCornerTick = (cx, cy, dx, dy, color) => {
-        ctx.strokeStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(cx + dx * gapPx, cy + dy * gapPx);
-        ctx.lineTo(cx + dx * (gapPx + lenPx), cy + dy * (gapPx + lenPx));
-        ctx.stroke();
-    };
+    ctx.save();
+    if (margin >= 3) {
+        const gap = Math.min(1.0, margin * 0.14);
+        const len = Math.max(2.0, Math.min(4.2, margin - gap - 0.5));
+        const gapPx = gap * pxPerMm;
+        const lenPx = len * pxPerMm;
 
-    for (const [vx, isCutV] of [[sx0, cutEdges.left], [sx1, cutEdges.right]]) {
-        const col = isCutV ? cutColor : slateColor;
-        drawCornerTick(vx, sy0, 0, -1, col);
-        drawCornerTick(vx, sy1, 0, 1, col);
-    }
-    for (const [hy, isCutH] of [[sy0, cutEdges.top], [sy1, cutEdges.bottom]]) {
-        const col = isCutH ? cutColor : slateColor;
-        drawCornerTick(sx0, hy, -1, 0, col);
-        drawCornerTick(sx1, hy, 1, 0, col);
-    }
+        ctx.lineWidth = Math.max(1, 0.28 * pxPerMm);
 
-    // Overlap alignment ticks in outer margin
-    if (glueEdges.left && typeof overlapGuides.left === 'number') {
-        const gx = (ox + overlapGuides.left) * pxPerMm;
-        drawCornerTick(gx, sy0, 0, -1, glueColor);
-        drawCornerTick(gx, sy1, 0, 1, glueColor);
-    }
-    if (glueEdges.top && typeof overlapGuides.top === 'number') {
-        const gy = (oy + overlapGuides.top) * pxPerMm;
-        drawCornerTick(sx0, gy, -1, 0, glueColor);
-        drawCornerTick(sx1, gy, 1, 0, glueColor);
+        const drawCornerTick = (cx, cy, dx, dy, color) => {
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(cx + dx * gapPx, cy + dy * gapPx);
+            ctx.lineTo(cx + dx * (gapPx + lenPx), cy + dy * (gapPx + lenPx));
+            ctx.stroke();
+        };
+
+        for (const [vx, isCutV] of [[sx0, cutEdges.left], [sx1, cutEdges.right]]) {
+            const col = isCutV ? cutColor : slateColor;
+            drawCornerTick(vx, sy0, 0, -1, col);
+            drawCornerTick(vx, sy1, 0, 1, col);
+        }
+        for (const [hy, isCutH] of [[sy0, cutEdges.top], [sy1, cutEdges.bottom]]) {
+            const col = isCutH ? cutColor : slateColor;
+            drawCornerTick(sx0, hy, -1, 0, col);
+            drawCornerTick(sx1, hy, 1, 0, col);
+        }
+
+        // Edge cut accents & scissors in the outer margin (only when margin has enough screen pixels)
+        const marginPx = margin * pxPerMm;
+        if (marginPx >= 3.5) {
+            const iconScale = Math.min(1.85, marginPx / 4.2);
+            if (cutEdges.right) {
+                drawScissorsToCtx(ctx, (sx1 + (margin * 0.5) * pxPerMm) / iconScale, (sy0 + sy1) / (2 * iconScale), iconScale, true, cutColor);
+            }
+            if (cutEdges.left) {
+                drawScissorsToCtx(ctx, (sx0 - (margin * 0.5) * pxPerMm) / iconScale, (sy0 + sy1) / (2 * iconScale), iconScale, true, cutColor);
+            }
+            if (cutEdges.bottom) {
+                drawScissorsToCtx(ctx, (sx0 + sx1) / (2 * iconScale), (sy1 + (margin * 0.5) * pxPerMm) / iconScale, iconScale, false, cutColor);
+            }
+            if (cutEdges.top) {
+                drawScissorsToCtx(ctx, (sx0 + sx1) / (2 * iconScale), (sy0 - (margin * 0.5) * pxPerMm) / iconScale, iconScale, false, cutColor);
+            }
+        }
+
+        // Overlap alignment ticks & pointer triangles in outer margin (clamped inside margin bounds)
+        const availTriPx = marginPx - gapPx - 0.5;
+        const canDrawTri = availTriPx >= 2.0;
+        const triSize = canDrawTri ? Math.min(4.5, Math.min(1.3 * pxPerMm, availTriPx)) : 0;
+        ctx.fillStyle = glueColor;
+        if (glueEdges.left && typeof overlapGuides.left === 'number') {
+            const gx = (ox + overlapGuides.left) * pxPerMm;
+            drawCornerTick(gx, sy0, 0, -1, glueColor);
+            drawCornerTick(gx, sy1, 0, 1, glueColor);
+            if (canDrawTri) {
+                ctx.beginPath();
+                ctx.moveTo(gx, sy0 - gapPx);
+                ctx.lineTo(gx - triSize * 0.65, sy0 - gapPx - triSize);
+                ctx.lineTo(gx + triSize * 0.65, sy0 - gapPx - triSize);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(gx, sy1 + gapPx);
+                ctx.lineTo(gx - triSize * 0.65, sy1 + gapPx + triSize);
+                ctx.lineTo(gx + triSize * 0.65, sy1 + gapPx + triSize);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        if (glueEdges.top && typeof overlapGuides.top === 'number') {
+            const gy = (oy + overlapGuides.top) * pxPerMm;
+            drawCornerTick(sx0, gy, -1, 0, glueColor);
+            drawCornerTick(sx1, gy, 1, 0, glueColor);
+            if (canDrawTri) {
+                ctx.beginPath();
+                ctx.moveTo(sx0 - gapPx, gy);
+                ctx.lineTo(sx0 - gapPx - triSize, gy - triSize * 0.65);
+                ctx.lineTo(sx0 - gapPx - triSize, gy + triSize * 0.65);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(sx1 + gapPx, gy);
+                ctx.lineTo(sx1 + gapPx + triSize, gy - triSize * 0.65);
+                ctx.lineTo(sx1 + gapPx + triSize, gy + triSize * 0.65);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+    } else {
+        // Borderless (margin < 3mm): draw crisp inset dashed cut/glue edge lines matching PDF 1:1
+        ctx.lineWidth = Math.max(1.2, 0.4 * pxPerMm);
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = cutColor;
+        if (cutEdges.right) {
+            ctx.beginPath();
+            ctx.moveTo(sx1 - 1, sy0);
+            ctx.lineTo(sx1 - 1, sy1);
+            ctx.stroke();
+        }
+        if (cutEdges.left) {
+            ctx.beginPath();
+            ctx.moveTo(sx0 + 1, sy0);
+            ctx.lineTo(sx0 + 1, sy1);
+            ctx.stroke();
+        }
+        if (cutEdges.bottom) {
+            ctx.beginPath();
+            ctx.moveTo(sx0, sy1 - 1);
+            ctx.lineTo(sx1, sy1 - 1);
+            ctx.stroke();
+        }
+        if (cutEdges.top) {
+            ctx.beginPath();
+            ctx.moveTo(sx0, sy0 + 1);
+            ctx.lineTo(sx1, sy0 + 1);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = glueColor;
+        if (glueEdges.left && typeof overlapGuides.left === 'number') {
+            const gx = (ox + overlapGuides.left) * pxPerMm;
+            ctx.beginPath();
+            ctx.moveTo(gx, sy0);
+            ctx.lineTo(gx, sy1);
+            ctx.stroke();
+        }
+        if (glueEdges.top && typeof overlapGuides.top === 'number') {
+            const gy = (oy + overlapGuides.top) * pxPerMm;
+            ctx.beginPath();
+            ctx.moveTo(sx0, gy);
+            ctx.lineTo(sx1, gy);
+            ctx.stroke();
+        }
     }
     ctx.restore();
 }
@@ -634,32 +769,43 @@ function drawAssembledPreview(canvas, layout, previewBitmap, item, settings) {
         );
     }
 
-    // 2. Draw each tile's exact continuous image slice
+    // 2. Draw each tile's exact continuous image slice (pixel-snapped when overlap = 0 to prevent hairlines)
+    const snapX = layout.overlapMm <= 0;
+    const snapY = layout.overlapYMm <= 0;
     for (const tile of layout.tiles) {
         const src = tile.exactSrcRect || tile.srcRect;
         if (!src || !tile.destRectMm) continue;
-        const dx = (tile.col * stepX + tile.destRectMm.x) * pxPerMm;
-        const dy = (tile.row * stepY + tile.destRectMm.y) * pxPerMm;
-        const dw = tile.destRectMm.w * pxPerMm;
-        const dh = tile.destRectMm.h * pxPerMm;
+        const rawX0 = (tile.col * stepX + tile.destRectMm.x) * pxPerMm;
+        const rawY0 = (tile.row * stepY + tile.destRectMm.y) * pxPerMm;
+        const rawX1 = rawX0 + tile.destRectMm.w * pxPerMm;
+        const rawY1 = rawY0 + tile.destRectMm.h * pxPerMm;
 
-        const sx = src.sx * bmpScaleX;
-        const sy = src.sy * bmpScaleY;
-        const sw = Math.max(0.25, src.sw * bmpScaleX);
-        const sh = Math.max(0.25, src.sh * bmpScaleY);
+        const dx = snapX ? Math.round(rawX0) : rawX0;
+        const dy = snapY ? Math.round(rawY0) : rawY0;
+        const dw = snapX ? Math.max(1, Math.round(rawX1) - dx) : rawX1 - rawX0;
+        const dh = snapY ? Math.max(1, Math.round(rawY1) - dy) : rawY1 - rawY0;
 
-        ctx.drawImage(previewBitmap, sx, sy, sw, sh, dx, dy, dw, dh);
+        const clamped = clampSourceDrawRect(src, bmpScaleX, bmpScaleY, previewBitmap.width, previewBitmap.height);
+        ctx.drawImage(previewBitmap, clamped.sx, clamped.sy, clamped.sw, clamped.sh, dx, dy, dw, dh);
     }
 
-    // 3. Draw overlap / glue tab zones when overlap > 0
+    // 3. Draw overlap / glue tab zones clipped to the placed image bounds
+    const placed = layout.placedRectMm;
     if (layout.cols > 1 && layout.overlapMm > 0) {
         ctx.fillStyle = settings.showCropMarks
             ? 'rgba(2, 132, 199, 0.14)'
             : 'rgba(236, 72, 153, 0.14)';
         for (let c = 1; c < layout.cols; c++) {
-            const bx = (margin + c * stepX) * pxPerMm;
-            const bw = layout.overlapMm * pxPerMm;
-            ctx.fillRect(bx, margin * pxPerMm, bw, layout.totalH * pxPerMm);
+            const ox0 = Math.max(c * stepX, placed.x);
+            const ox1 = Math.min(c * stepX + layout.overlapMm, placed.x + placed.w);
+            if (ox1 > ox0 + 0.05) {
+                ctx.fillRect(
+                    (margin + ox0) * pxPerMm,
+                    (margin + placed.y) * pxPerMm,
+                    (ox1 - ox0) * pxPerMm,
+                    placed.h * pxPerMm
+                );
+            }
         }
     }
     if (layout.rows > 1 && layout.overlapYMm > 0) {
@@ -667,15 +813,22 @@ function drawAssembledPreview(canvas, layout, previewBitmap, item, settings) {
             ? 'rgba(2, 132, 199, 0.14)'
             : 'rgba(236, 72, 153, 0.14)';
         for (let r = 1; r < layout.rows; r++) {
-            const by = (margin + r * stepY) * pxPerMm;
-            const bh = layout.overlapYMm * pxPerMm;
-            ctx.fillRect(margin * pxPerMm, by, layout.totalW * pxPerMm, bh);
+            const oy0 = Math.max(r * stepY, placed.y);
+            const oy1 = Math.min(r * stepY + layout.overlapYMm, placed.y + placed.h);
+            if (oy1 > oy0 + 0.05) {
+                ctx.fillRect(
+                    (margin + placed.x) * pxPerMm,
+                    (margin + oy0) * pxPerMm,
+                    placed.w * pxPerMm,
+                    (oy1 - oy0) * pxPerMm
+                );
+            }
         }
     }
 
     // 4. Draw each sheet's subtle printable boundary
     ctx.save();
-    ctx.strokeStyle = 'rgba(30, 41, 59, 0.30)';
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.32)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     for (const tile of layout.tiles) {
@@ -735,7 +888,7 @@ function drawAssembledPreview(canvas, layout, previewBitmap, item, settings) {
         }
     }
 
-    // 6. Draw subtle tile badge if enabled
+    // 6. Draw subtle tile badge at bottom-right (consistent with Sheets Preview & PDF export)
     if (settings.showTileLabels) {
         ctx.save();
         const tilePxW = layout.printableW * pxPerMm;
@@ -747,15 +900,21 @@ function drawAssembledPreview(canvas, layout, previewBitmap, item, settings) {
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'left';
 
+        const padX = micro ? 4 : 6;
+        const badgeH = fontSize + 7;
         for (const tile of layout.tiles) {
             const px = (margin + tile.col * stepX) * pxPerMm;
             const py = (margin + tile.row * stepY) * pxPerMm;
             const text = micro
                 ? `${tile.pageNum}`
                 : compact
-                    ? `F${tile.row + 1}-C${tile.col + 1}`
+                    ? tile.shortLabel || formatTileCoord(tile.row + 1, tile.col + 1)
                     : tile.label;
-            drawCanvasTileBadge(ctx, text, px + 4, py + 4, Math.max(16, tilePxW - 8), fontSize, micro);
+            const maxBadgeW = Math.max(16, tilePxW - 8);
+            const badgeW = Math.min(maxBadgeW, ctx.measureText(text).width + padX * 2);
+            const bx = px + tilePxW - badgeW - 4;
+            const by = py + tilePxH - badgeH - 4;
+            drawCanvasTileBadge(ctx, text, bx, by, maxBadgeW, fontSize, micro);
         }
         ctx.restore();
     }
@@ -803,12 +962,13 @@ function drawSheetsPreview(canvas, layout, previewBitmap, item, settings) {
         // Tile image slice
         const src = tile.exactSrcRect || tile.srcRect;
         if (src && tile.destRectMm) {
+            const clamped = clampSourceDrawRect(src, bmpScaleX, bmpScaleY, previewBitmap.width, previewBitmap.height);
             ctx.drawImage(
                 previewBitmap,
-                src.sx * bmpScaleX,
-                src.sy * bmpScaleY,
-                Math.max(0.25, src.sw * bmpScaleX),
-                Math.max(0.25, src.sh * bmpScaleY),
+                clamped.sx,
+                clamped.sy,
+                clamped.sw,
+                clamped.sh,
                 (ox + tile.destRectMm.x) * pxPerMm,
                 (oy + tile.destRectMm.y) * pxPerMm,
                 tile.destRectMm.w * pxPerMm,
@@ -820,14 +980,25 @@ function drawSheetsPreview(canvas, layout, previewBitmap, item, settings) {
         const x1 = x0 + pw;
         const y1 = y0 + ph;
 
-        // Overlap strip indicator on glue edges
-        if (tile.glueEdges?.left && layout.overlapMm > 0) {
-            ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
-            ctx.fillRect((ox + x0) * pxPerMm, (oy + y0) * pxPerMm, layout.overlapMm * pxPerMm, ph * pxPerMm);
-        }
-        if (tile.glueEdges?.top && layout.overlapYMm > 0) {
-            ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
-            ctx.fillRect((ox + x0) * pxPerMm, (oy + y0) * pxPerMm, pw * pxPerMm, layout.overlapYMm * pxPerMm);
+        // Overlap strip indicator on glue edges (clipped to actual image destRectMm)
+        if (tile.destRectMm) {
+            const d = tile.destRectMm;
+            if (tile.glueEdges?.left && layout.overlapMm > 0) {
+                const gx0 = Math.max(x0, d.x);
+                const gx1 = Math.min(x0 + layout.overlapMm, d.x + d.w);
+                if (gx1 > gx0 + 0.05) {
+                    ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
+                    ctx.fillRect((ox + gx0) * pxPerMm, (oy + d.y) * pxPerMm, (gx1 - gx0) * pxPerMm, d.h * pxPerMm);
+                }
+            }
+            if (tile.glueEdges?.top && layout.overlapYMm > 0) {
+                const gy0 = Math.max(y0, d.y);
+                const gy1 = Math.min(y0 + layout.overlapYMm, d.y + d.h);
+                if (gy1 > gy0 + 0.05) {
+                    ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
+                    ctx.fillRect((ox + d.x) * pxPerMm, (oy + gy0) * pxPerMm, d.w * pxPerMm, (gy1 - gy0) * pxPerMm);
+                }
+            }
         }
 
         // Subtle printable boundary
@@ -840,8 +1011,8 @@ function drawSheetsPreview(canvas, layout, previewBitmap, item, settings) {
             ctx.restore();
         }
 
-        // Margin crop & glue registration ticks
-        if (settings.showCropMarks && margin >= 3) {
+        // Margin crop & glue registration marks (matching PDF for both margin >= 3 and borderless)
+        if (settings.showCropMarks && layout.totalPages > 1) {
             drawCanvasMarginMarks(ctx, {
                 ox,
                 oy,
@@ -866,11 +1037,33 @@ function drawSheetsPreview(canvas, layout, previewBitmap, item, settings) {
             ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'left';
-            const text = micro ? `${tile.pageNum}` : `F${tile.row + 1}-C${tile.col + 1}`;
-            drawCanvasTileBadge(ctx, text, sxPx + 4, syPx + 4, Math.max(16, tilePxW - 8), fontSize, micro);
+            const text = micro
+                ? `${tile.pageNum}`
+                : tile.shortLabel || formatTileCoord(tile.row + 1, tile.col + 1);
+            const padX = micro ? 4 : 6;
+            const badgeH = fontSize + 7;
+            const maxBadgeW = Math.max(16, tilePxW - 8);
+            const badgeW = Math.min(maxBadgeW, ctx.measureText(text).width + padX * 2);
+            const bx = sxPx + tilePxW - badgeW - 4;
+            const by = syPx + tilePxH - badgeH - 4;
+            drawCanvasTileBadge(ctx, text, bx, by, maxBadgeW, fontSize, micro);
             ctx.restore();
         }
     }
+}
+
+/**
+ * Syncs quick-grid preset button active states with current `(cols, rows)`.
+ * @param {number} cols
+ * @param {number} rows
+ */
+function syncGridPresetsUi(cols, rows) {
+    document.querySelectorAll('.poster-grid-preset').forEach((btn) => {
+        const active =
+            Number(btn.dataset.cols) === cols && Number(btn.dataset.rows) === rows;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', String(active));
+    });
 }
 
 /**
@@ -896,25 +1089,63 @@ export function renderPosterPreview() {
         fitMode: settings.fitMode,
         overlapMm: settings.overlapMm,
         marginMm: settings.marginMm,
+        lang: AppState.lang,
     });
 
+    const isPropWidth = layout.fitMode === 'proportional';
+    const isPropHeight = layout.fitMode === 'proportional-height';
+
+    if (dom.cols) {
+        const wasDisabled = dom.cols.disabled;
+        dom.cols.disabled = isPropHeight;
+        if (isPropHeight) {
+            dom.cols.value = String(layout.cols);
+        } else if (wasDisabled) {
+            dom.cols.value = String(state.manualCols);
+        }
+    }
     if (dom.rows) {
-        const isProp = layout.fitMode === 'proportional';
-        dom.rows.disabled = isProp;
-        if (isProp) {
+        const wasDisabled = dom.rows.disabled;
+        dom.rows.disabled = isPropWidth;
+        if (isPropWidth) {
             dom.rows.value = String(layout.rows);
+        } else if (wasDisabled) {
+            dom.rows.value = String(state.manualRows);
         }
     }
 
+    syncGridPresetsUi(layout.cols, layout.rows);
     syncPreviewModeUi();
 
-    // Update live stats
+    // Update live stats (compute exact sum across all loaded items for multi-file accuracy)
     const fileCount = state.items.length;
     if (dom.statPages) {
-        dom.statPages.textContent =
-            fileCount > 1
-                ? `${layout.totalPages} × ${fileCount} = ${layout.totalPages * fileCount}`
-                : String(layout.totalPages);
+        if (fileCount > 1) {
+            let sumPages = 0;
+            for (let i = 0; i < fileCount; i++) {
+                if (i === state.currentIndex) {
+                    sumPages += layout.totalPages;
+                } else {
+                    const other = state.items[i];
+                    const otherLayout = computePosterLayout({
+                        imgW: other.width,
+                        imgH: other.height,
+                        cols: settings.cols,
+                        rows: settings.rows,
+                        paperKey: settings.paperKey,
+                        orientation: settings.orientation,
+                        fitMode: settings.fitMode,
+                        overlapMm: settings.overlapMm,
+                        marginMm: settings.marginMm,
+                        lang: AppState.lang,
+                    });
+                    sumPages += otherLayout.totalPages;
+                }
+            }
+            dom.statPages.textContent = `${sumPages} (${fileCount} ${msg('arch.', 'files')})`;
+        } else {
+            dom.statPages.textContent = String(layout.totalPages);
+        }
     }
     if (dom.statGrid) {
         dom.statGrid.textContent = `${layout.cols} × ${layout.rows}`;
@@ -931,15 +1162,17 @@ export function renderPosterPreview() {
             layout.overlapMm > 0 || layout.overlapYMm > 0
                 ? msg(` · Solape ${settings.overlapMm} mm`, ` · Overlap ${settings.overlapMm} mm`)
                 : '';
-        const trimmedNote =
+        let modeNote = '';
+        if (
             layout.fitMode === 'contain' &&
             (layout.cols < layout.requestedCols || layout.rows < layout.requestedRows)
-                ? msg(
-                      ` · Optimizado a ${layout.cols}×${layout.rows} (sin hojas vacías)`,
-                      ` · Trimmed to ${layout.cols}×${layout.rows} (no blank sheets)`
-                  )
-                : '';
-        dom.previewCaption.textContent = `${prefix}${item.displayName} (${item.width}×${item.height} px)${overlapText}${trimmedNote}`;
+        ) {
+            modeNote = msg(
+                ` · Sin hojas vacías: ${layout.cols}×${layout.rows} (usa "Ajustar a cuadrícula exacta" para ${layout.requestedCols}×${layout.requestedRows})`,
+                ` · Trimmed blank sheets to ${layout.cols}×${layout.rows} (use "Exact grid" for ${layout.requestedCols}×${layout.requestedRows})`
+            );
+        }
+        dom.previewCaption.textContent = `${prefix}${item.displayName} (${item.width}×${item.height} px)${overlapText}${modeNote}`;
     }
 
     const previewBitmap = getRetouchedPreviewBitmap(item);
@@ -1234,29 +1467,29 @@ function drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side }) {
     const compact = margin < 6.5;
     const label = msg('RECORTAR AQUÍ', 'CUT HERE');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(compact ? 5.6 : 7.0);
+    doc.setFontSize(compact ? 5.2 : 6.8);
     doc.setTextColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
 
     const textW = doc.getTextWidth(label);
-    const iconScale = compact ? 0.65 : 0.82;
+    const iconScale = compact ? 0.6 : 0.8;
     const iconW = 4.0 * iconScale;
-    const gap = compact ? 1.1 : 1.5;
+    const gap = compact ? 1.0 : 1.5;
     const groupW = iconW + gap + textW;
 
     if (isVertical) {
-        const cx = side === 'right' ? x1 + margin * 0.54 : x0 - margin * 0.46;
+        const cx = side === 'right' ? x1 + margin * 0.5 : x0 - margin * 0.5;
         const cy = (y0 + y1) / 2;
         const iconCy = cy + groupW / 2 - iconW / 2;
         drawScissorsToPdf(doc, cx, iconCy, iconScale, true, POSTER_CUT_RGB);
         const textStartY = cy + groupW / 2 - iconW - gap;
-        doc.text(label, cx + (compact ? 0.65 : 0.85), textStartY, { angle: 90 });
+        doc.text(label, cx + (compact ? 0.55 : 0.8), textStartY, { angle: 90 });
     } else {
         const cx = (x0 + x1) / 2;
-        const cy = side === 'bottom' ? y1 + margin * 0.56 : y0 - margin * 0.44;
+        const cy = side === 'bottom' ? y1 + margin * 0.5 : y0 - margin * 0.5;
         const iconCx = cx - groupW / 2 + iconW / 2;
         drawScissorsToPdf(doc, iconCx, cy, iconScale, false, POSTER_CUT_RGB);
         const textStartX = cx - groupW / 2 + iconW + gap;
-        doc.text(label, textStartX, cy + (compact ? 0.65 : 0.85));
+        doc.text(label, textStartX, cy + (compact ? 0.55 : 0.8));
     }
 }
 
@@ -1272,144 +1505,184 @@ function drawPdfGlueEdge(doc, { x0, y0, x1, y1, margin, side, neighborLabel }) {
         `GLUE HERE · ${neighborLabel}`
     );
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(compact ? 5.4 : 6.8);
+    doc.setFontSize(compact ? 5.0 : 6.6);
     doc.setTextColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
     const textW = doc.getTextWidth(label);
 
     if (isVertical) {
-        const cx = x0 - margin * 0.46;
+        const cx = x0 - margin * 0.5;
         const cy = (y0 + y1) / 2;
-        doc.text(label, cx + (compact ? 0.6 : 0.8), cy + textW / 2, { angle: 90 });
+        doc.text(label, cx + (compact ? 0.55 : 0.78), cy + textW / 2, { angle: 90 });
     } else {
         const cx = (x0 + x1) / 2;
-        const cy = y0 - margin * 0.44;
-        doc.text(label, cx - textW / 2, cy + (compact ? 0.6 : 0.8));
+        const cy = y0 - margin * 0.5;
+        doc.text(label, cx - textW / 2, cy + (compact ? 0.55 : 0.78));
     }
+}
+
+/**
+ * Draws crisp dashed inset cut/glue edge guides when the user selects borderless (`margin < 3 mm`)
+ * with crop/glue indicators enabled, matching Sheets Preview 1:1 without stamping opaque boxes over artwork.
+ */
+function drawPdfBorderlessIndicators(doc, tile) {
+    const { x: x0, y: y0, w: pw, h: ph } = tile.printableRectMm;
+    const x1 = x0 + pw;
+    const y1 = y0 + ph;
+    const cut = tile.cutEdges || {};
+    const glue = tile.glueEdges || {};
+    const guides = tile.overlapGuides || {};
+    const hasDash = typeof doc.setLineDashPattern === 'function';
+
+    if (hasDash) doc.setLineDashPattern([2, 1.5], 0);
+    doc.setLineWidth(0.35);
+    doc.setDrawColor(POSTER_CUT_RGB.r, POSTER_CUT_RGB.g, POSTER_CUT_RGB.b);
+    if (cut.right) doc.line(x1 - 0.3, y0, x1 - 0.3, y1);
+    if (cut.left) doc.line(x0 + 0.3, y0, x0 + 0.3, y1);
+    if (cut.bottom) doc.line(x0, y1 - 0.3, x1, y1 - 0.3);
+    if (cut.top) doc.line(x0, y0 + 0.3, x1, y0 + 0.3);
+
+    doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+    if (glue.left && typeof guides.left === 'number') {
+        doc.line(guides.left, y0, guides.left, y1);
+    }
+    if (glue.top && typeof guides.top === 'number') {
+        doc.line(x0, guides.top, x1, guides.top);
+    }
+    if (hasDash) doc.setLineDashPattern([], 0);
 }
 
 /**
  * Draws outer-margin-only registration ticks, overlap alignment pointers,
  * red cut labels (✂ RECORTAR AQUÍ), blue glue labels (PEGAR AQUÍ), and optional tile labels.
- * Never draws lines inside the printed image area.
+ * Falls back to compact inset guides when `margin < 3 mm` so enabled marks always render.
  *
  * @param {object} doc jsPDF instance
  * @param {object} layout Computed poster layout
  * @param {object} tile Current tile metadata
- * @param {{ showCropMarks: boolean, showTileLabels: boolean }} options
+ * @param {{ showCropMarks: boolean, showTileLabels: boolean, labelPrefix?: string }} options
  */
-function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabels }) {
+function drawPdfTileAnnotations(doc, layout, tile, { showCropMarks, showTileLabels, labelPrefix = '' }) {
     const { x: x0, y: y0, w: pw, h: ph } = tile.printableRectMm;
     const x1 = x0 + pw;
     const y1 = y0 + ph;
     const margin = layout.marginMm;
     const hasMarginSpace = margin >= 3;
-    const bottomLabelY = Math.min(layout.sheetH - 1.5, y1 + Math.max(3.0, margin * 0.58));
+    const bottomLabelY = Math.min(layout.sheetH - 1.6, y1 + Math.max(2.6, margin * 0.54));
 
-    if (showCropMarks && hasMarginSpace) {
-        const tickGap = Math.min(1.0, margin * 0.14);
-        const tickLen = Math.max(2.0, Math.min(4.2, margin - tickGap - 0.5));
-        const hasDash = typeof doc.setLineDashPattern === 'function';
-        if (hasDash) doc.setLineDashPattern([], 0);
-        doc.setLineWidth(0.25);
+    if (showCropMarks && layout.totalPages > 1) {
+        if (hasMarginSpace) {
+            const tickGap = Math.min(1.0, margin * 0.14);
+            const tickLen = Math.max(2.0, Math.min(4.2, margin - tickGap - 0.5));
+            const hasDash = typeof doc.setLineDashPattern === 'function';
+            if (hasDash) doc.setLineDashPattern([], 0);
+            doc.setLineWidth(0.25);
 
-        const cut = tile.cutEdges || {};
-        for (const [vx, isCutV] of [[x0, cut.left], [x1, cut.right]]) {
-            const c = isCutV ? POSTER_CUT_RGB : POSTER_TICK_RGB;
-            doc.setDrawColor(c.r, c.g, c.b);
-            doc.line(vx, y0 - tickGap, vx, y0 - tickGap - tickLen);
-            doc.line(vx, y1 + tickGap, vx, y1 + tickGap + tickLen);
-        }
-        for (const [hy, isCutH] of [[y0, cut.top], [y1, cut.bottom]]) {
-            const c = isCutH ? POSTER_CUT_RGB : POSTER_TICK_RGB;
-            doc.setDrawColor(c.r, c.g, c.b);
-            doc.line(x0 - tickGap, hy, x0 - tickGap - tickLen, hy);
-            doc.line(x1 + tickGap, hy, x1 + tickGap + tickLen, hy);
-        }
-
-        for (const side of ['top', 'right', 'bottom', 'left']) {
-            if (cut[side]) {
-                drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side });
+            const cut = tile.cutEdges || {};
+            for (const [vx, isCutV] of [[x0, cut.left], [x1, cut.right]]) {
+                const c = isCutV ? POSTER_CUT_RGB : POSTER_TICK_RGB;
+                doc.setDrawColor(c.r, c.g, c.b);
+                doc.line(vx, y0 - tickGap, vx, y0 - tickGap - tickLen);
+                doc.line(vx, y1 + tickGap, vx, y1 + tickGap + tickLen);
             }
-        }
+            for (const [hy, isCutH] of [[y0, cut.top], [y1, cut.bottom]]) {
+                const c = isCutH ? POSTER_CUT_RGB : POSTER_TICK_RGB;
+                doc.setDrawColor(c.r, c.g, c.b);
+                doc.line(x0 - tickGap, hy, x0 - tickGap - tickLen, hy);
+                doc.line(x1 + tickGap, hy, x1 + tickGap + tickLen, hy);
+            }
 
-        const glue = tile.glueEdges || {};
-        const guides = tile.overlapGuides || {};
-        if (glue.left) {
-            if (typeof guides.left === 'number') {
-                const gx = guides.left;
-                doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
-                doc.setFillColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
-                doc.setLineWidth(0.3);
-                doc.line(gx, y0 - tickGap, gx, y0 - tickGap - tickLen);
-                doc.line(gx, y1 + tickGap, gx, y1 + tickGap + tickLen);
-                doc.triangle(gx, y0 - tickGap - 0.1, gx - 0.85, y0 - tickGap - 1.5, gx + 0.85, y0 - tickGap - 1.5, 'F');
-                doc.triangle(gx, y1 + tickGap + 0.1, gx - 0.85, y1 + tickGap + 1.5, gx + 0.85, y1 + tickGap + 1.5, 'F');
+            for (const side of ['top', 'right', 'bottom', 'left']) {
+                if (cut[side]) {
+                    drawPdfCutEdge(doc, { x0, y0, x1, y1, margin, side });
+                }
             }
-            drawPdfGlueEdge(doc, {
-                x0,
-                y0,
-                x1,
-                y1,
-                margin,
-                side: 'left',
-                neighborLabel: `F${tile.row + 1}-C${tile.col}`,
-            });
-        }
-        if (glue.top) {
-            if (typeof guides.top === 'number') {
-                const gy = guides.top;
-                doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
-                doc.setFillColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
-                doc.setLineWidth(0.3);
-                doc.line(x0 - tickGap, gy, x0 - tickGap - tickLen, gy);
-                doc.line(x1 + tickGap, gy, x1 + tickGap + tickLen, gy);
-                doc.triangle(x0 - tickGap - 0.1, gy, x0 - tickGap - 1.5, gy - 0.85, x0 - tickGap - 1.5, gy + 0.85, 'F');
-                doc.triangle(x1 + tickGap + 0.1, gy, x1 + tickGap + 1.5, gy - 0.85, x1 + tickGap + 1.5, gy + 0.85, 'F');
+
+            const glue = tile.glueEdges || {};
+            const guides = tile.overlapGuides || {};
+            if (glue.left) {
+                if (typeof guides.left === 'number') {
+                    const gx = guides.left;
+                    doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                    doc.setFillColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                    doc.setLineWidth(0.3);
+                    doc.line(gx, y0 - tickGap, gx, y0 - tickGap - tickLen);
+                    doc.line(gx, y1 + tickGap, gx, y1 + tickGap + tickLen);
+                    doc.triangle(gx, y0 - tickGap - 0.1, gx - 0.85, y0 - tickGap - 1.5, gx + 0.85, y0 - tickGap - 1.5, 'F');
+                    doc.triangle(gx, y1 + tickGap + 0.1, gx - 0.85, y1 + tickGap + 1.5, gx + 0.85, y1 + tickGap + 1.5, 'F');
+                }
+                drawPdfGlueEdge(doc, {
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    margin,
+                    side: 'left',
+                    neighborLabel: formatTileCoord(tile.row + 1, tile.col),
+                });
             }
-            drawPdfGlueEdge(doc, {
-                x0,
-                y0,
-                x1,
-                y1,
-                margin,
-                side: 'top',
-                neighborLabel: `F${tile.row}-C${tile.col + 1}`,
-            });
+            if (glue.top) {
+                if (typeof guides.top === 'number') {
+                    const gy = guides.top;
+                    doc.setDrawColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                    doc.setFillColor(POSTER_GLUE_RGB.r, POSTER_GLUE_RGB.g, POSTER_GLUE_RGB.b);
+                    doc.setLineWidth(0.3);
+                    doc.line(x0 - tickGap, gy, x0 - tickGap - tickLen, gy);
+                    doc.line(x1 + tickGap, gy, x1 + tickGap + tickLen, gy);
+                    doc.triangle(x0 - tickGap - 0.1, gy, x0 - tickGap - 1.5, gy - 0.85, x0 - tickGap - 1.5, gy + 0.85, 'F');
+                    doc.triangle(x1 + tickGap + 0.1, gy, x1 + tickGap + 1.5, gy - 0.85, x1 + tickGap + 1.5, gy + 0.85, 'F');
+                }
+                drawPdfGlueEdge(doc, {
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    margin,
+                    side: 'top',
+                    neighborLabel: formatTileCoord(tile.row, tile.col + 1),
+                });
+            }
+        } else {
+            drawPdfBorderlessIndicators(doc, tile);
         }
     }
 
     if (showTileLabels) {
+        const displayLabel = labelPrefix ? `${labelPrefix}${tile.label}` : tile.label;
         if (hasMarginSpace) {
             const labelX = Math.max(x0 + 2, x1 - 2);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(margin < 6.5 ? 6.2 : 7.5);
+            doc.setFontSize(margin < 6.5 ? 5.8 : 7.5);
             doc.setTextColor(100, 116, 139);
-            doc.text(tile.label, labelX, bottomLabelY, { align: 'right' });
+            doc.text(displayLabel, labelX, bottomLabelY, { align: 'right' });
         } else {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(7);
-            const txtW = doc.getTextWidth(tile.label);
+            const txtW = doc.getTextWidth(displayLabel);
             const bx = Math.max(2, layout.sheetW - txtW - 7);
             const by = Math.max(2, layout.sheetH - 7);
             doc.setFillColor(15, 23, 42);
             doc.roundedRect(bx, by, txtW + 4, 4.8, 1, 1, 'F');
             doc.setTextColor(255, 255, 255);
-            doc.text(tile.label, bx + 2, by + 3.4);
+            doc.text(displayLabel, bx + 2, by + 3.4);
         }
     }
 }
 
 /**
  * Computes a consistent, high-DPI print pixel-per-mm density across all tiles
- * of a poster layout, upscaling low-res sources cleanly to avoid JPEG macroblocks
- * and capping huge multi-page posters within safe browser memory limits.
+ * of a poster layout, using the denser axis so anisotropic stretched posters
+ * retain full print sharpness while respecting a batch-wide memory budget.
  *
  * @param {object} layout
+ * @param {number} [batchAreaMm2=0]
  * @returns {number}
  */
-function computeExportPxPerMm(layout) {
+function computeExportPxPerMm(layout, batchAreaMm2 = 0) {
     const placedW = Math.max(1, layout.placedRectMm?.w || layout.totalW);
-    const nativePxPerMm = (layout.cropSrcRect?.sw || 1) / placedW;
+    const placedH = Math.max(1, layout.placedRectMm?.h || layout.totalH);
+    const nativePxPerMmX = (layout.cropSrcRect?.sw || 1) / placedW;
+    const nativePxPerMmY = (layout.cropSrcRect?.sh || 1) / placedH;
+    const nativePxPerMm = Math.max(nativePxPerMmX, nativePxPerMmY);
     let pxPerMm = clamp(nativePxPerMm, MIN_PRINT_PX_PER_MM, MAX_PRINT_PX_PER_MM);
 
     const activeTiles = layout.tiles.filter((t) => t.destRectMm && (t.exactSrcRect || t.srcRect));
@@ -1420,12 +1693,13 @@ function computeExportPxPerMm(layout) {
         );
         pxPerMm = Math.min(pxPerMm, MAX_EXPORT_TILE_DIM / maxTileMm);
 
-        const totalAreaMm2 = activeTiles.reduce(
+        const itemAreaMm2 = activeTiles.reduce(
             (sum, t) => sum + t.destRectMm.w * t.destRectMm.h,
             0
         );
-        if (totalAreaMm2 > 0) {
-            pxPerMm = Math.min(pxPerMm, Math.sqrt(MAX_TOTAL_EXPORT_PIXELS / totalAreaMm2));
+        const effectiveAreaMm2 = Math.max(itemAreaMm2, batchAreaMm2);
+        if (effectiveAreaMm2 > 0) {
+            pxPerMm = Math.min(pxPerMm, Math.sqrt(MAX_TOTAL_EXPORT_PIXELS / effectiveAreaMm2));
         }
     }
 
@@ -1465,6 +1739,7 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
             fitMode: settings.fitMode,
             overlapMm: settings.overlapMm,
             marginMm: settings.marginMm,
+            lang: AppState.lang,
         })
     );
 
@@ -1508,12 +1783,17 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
         });
 
         let processedPages = 0;
+        const totalBatchAreaMm2 = exportTilesByItem.reduce(
+            (sum, tiles) =>
+                sum + tiles.reduce((s, tile) => s + (tile.destRectMm ? tile.destRectMm.w * tile.destRectMm.h : 0), 0),
+            0
+        );
 
         for (let itemIdx = 0; itemIdx < state.items.length; itemIdx++) {
             const item = state.items[itemIdx];
             const layout = layouts[itemIdx];
             const tilesToExport = exportTilesByItem[itemIdx];
-            const exportPxPerMm = computeExportPxPerMm(layout);
+            const exportPxPerMm = computeExportPxPerMm(layout, totalBatchAreaMm2);
 
             // Fast consistent path: retouch source once when <= 4 MP so seams are identical
             let sourceDrawable = item.image;
@@ -1558,12 +1838,13 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
                     tileCtx.fillRect(0, 0, tw, th);
                     tileCtx.imageSmoothingEnabled = true;
                     tileCtx.imageSmoothingQuality = 'high';
+                    const clampedSrc = clampSourceDrawRect(src, 1, 1, item.width, item.height);
                     tileCtx.drawImage(
                         sourceDrawable,
-                        src.sx,
-                        src.sy,
-                        src.sw,
-                        src.sh,
+                        clampedSrc.sx,
+                        clampedSrc.sy,
+                        clampedSrc.sw,
+                        clampedSrc.sh,
                         0,
                         0,
                         tw,
@@ -1590,6 +1871,7 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
                 drawPdfTileAnnotations(doc, layout, tile, {
                     showCropMarks: settings.showCropMarks,
                     showTileLabels: settings.showTileLabels,
+                    labelPrefix: state.items.length > 1 ? `#${itemIdx + 1} · ` : '',
                 });
 
                 processedPages += 1;
@@ -1621,13 +1903,32 @@ export async function generatePosterPDF({ forPrint = false } = {}) {
                 ext: 'pdf',
             });
             BlobRegistry.downloadBlob(pdfBlob, filename);
-            ToastManager.success(
-                t('toast_poster_done', {
-                    pages: totalExportedPages,
-                    cols: firstLayout.cols,
-                    rows: firstLayout.rows,
-                })
+            const uniformGrid = layouts.every(
+                (l) => l.cols === firstLayout.cols && l.rows === firstLayout.rows
             );
+            if (state.items.length === 1) {
+                ToastManager.success(
+                    t('toast_poster_done', {
+                        pages: totalExportedPages,
+                        cols: firstLayout.cols,
+                        rows: firstLayout.rows,
+                    })
+                );
+            } else if (uniformGrid) {
+                ToastManager.success(
+                    msg(
+                        `Póster generado: ${totalExportedPages} páginas (${state.items.length} archivos · ${firstLayout.cols}×${firstLayout.rows})`,
+                        `Poster exported: ${totalExportedPages} pages (${state.items.length} files · ${firstLayout.cols}×${firstLayout.rows})`
+                    )
+                );
+            } else {
+                ToastManager.success(
+                    msg(
+                        `Póster generado: ${totalExportedPages} páginas (${state.items.length} archivos)`,
+                        `Poster exported: ${totalExportedPages} pages (${state.items.length} files)`
+                    )
+                );
+            }
         }
 
         return pdfBlob;
@@ -1668,9 +1969,23 @@ function resetPoster() {
     state.items = [];
     state.currentIndex = 0;
     state.previewMode = 'assembled';
+    state.filters = {
+        preset: 'original',
+        ...POSTER_PRESETS.original,
+    };
     syncPreviewModeUi();
+    syncFilterControls();
 
     const dom = getDom();
+    if (dom.cols) {
+        dom.cols.disabled = false;
+        dom.cols.value = String(state.manualCols);
+    }
+    if (dom.rows) {
+        dom.rows.disabled = false;
+        dom.rows.value = String(state.manualRows);
+    }
+    syncGridPresetsUi(state.manualCols, state.manualRows);
     if (dom.fileInput) dom.fileInput.value = '';
     if (dom.previewCanvas) {
         const ctx = dom.previewCanvas.getContext('2d');
@@ -1708,6 +2023,14 @@ function bindRetouchControls() {
         el.addEventListener('input', () => {
             const fallback = key === 'saturation' ? 100 : 0;
             state.filters[key] = clamp(toFiniteNumber(el.value, fallback), min, max);
+            if (
+                state.filters.brightness === 0 &&
+                state.filters.contrast === 0 &&
+                state.filters.saturation === 100 &&
+                state.filters.temperature === 0
+            ) {
+                state.filters.cleanMode = false;
+            }
             const matchedPreset = findMatchingPreset(state.filters);
             state.filters.preset = matchedPreset || 'custom';
             syncFilterControls();
@@ -1748,6 +2071,9 @@ export function initPosterTool() {
     state.initialized = true;
 
     const dom = getDom();
+    state.manualCols = clamp(Math.round(toFiniteNumber(dom.cols?.value, 2)), 1, MAX_POSTER_GRID);
+    state.manualRows = clamp(Math.round(toFiniteNumber(dom.rows?.value, 2)), 1, MAX_POSTER_GRID);
+    syncGridPresetsUi(state.manualCols, state.manualRows);
 
     state.unbindDropzone = bindDropzone(dom.dropzone, dom.fileInput, {
         multiple: true,
@@ -1797,15 +2123,47 @@ export function initPosterTool() {
         renderPosterPreview();
     });
 
-    for (const numInput of [dom.cols, dom.rows]) {
+    for (const [numInput, stateKey] of [
+        [dom.cols, 'manualCols'],
+        [dom.rows, 'manualRows'],
+    ]) {
         if (!numInput) continue;
-        numInput.addEventListener('input', () => schedulePreviewRender());
+        numInput.addEventListener('input', () => {
+            const parsed = Number(numInput.value);
+            if (Number.isFinite(parsed) && parsed >= 1) {
+                state[stateKey] = clamp(Math.round(parsed), 1, MAX_POSTER_GRID);
+            }
+            schedulePreviewRender();
+        });
         numInput.addEventListener('change', () => {
-            const clamped = clamp(Math.round(toFiniteNumber(numInput.value, 2)), 1, 15);
+            const clamped = clamp(Math.round(toFiniteNumber(numInput.value, state[stateKey])), 1, MAX_POSTER_GRID);
+            state[stateKey] = clamped;
             numInput.value = String(clamped);
             schedulePreviewRender();
         });
     }
+
+    document.querySelectorAll('.poster-grid-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const targetCols = clamp(Math.round(toFiniteNumber(btn.dataset.cols, 2)), 1, MAX_POSTER_GRID);
+            const targetRows = clamp(Math.round(toFiniteNumber(btn.dataset.rows, 2)), 1, MAX_POSTER_GRID);
+            state.manualCols = targetCols;
+            state.manualRows = targetRows;
+            if (dom.fitMode && (dom.fitMode.value === 'proportional' || dom.fitMode.value === 'proportional-height')) {
+                dom.fitMode.value = 'stretch';
+            }
+            if (dom.cols) {
+                dom.cols.disabled = false;
+                dom.cols.value = String(targetCols);
+            }
+            if (dom.rows) {
+                dom.rows.disabled = false;
+                dom.rows.value = String(targetRows);
+            }
+            syncGridPresetsUi(targetCols, targetRows);
+            schedulePreviewRender();
+        });
+    });
 
     dom.overlap?.addEventListener('input', () => {
         const val = clamp(toFiniteNumber(dom.overlap.value, 5), 0, 15);
